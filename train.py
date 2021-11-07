@@ -1,0 +1,75 @@
+import random 
+import jax.numpy as jnp
+from jax import jit, value_and_grad
+from jax import random
+import jax
+import haiku as hk
+import optax
+from NCSN import NCSN
+from NCSN import marginal_prob_std
+from config import get_config
+from makedata import make_data
+import pdb
+
+
+conf = get_config()
+
+def forward_new(perturbed_x, t, sigma, is_training):
+    score_model = NCSN(conf.layer_sizes, conf.embed_dim)
+    return score_model(perturbed_x, t, sigma, is_training)
+
+f = hk.without_apply_rng(hk.transform_with_state(forward_new))
+dummy_xs, dummy_std = jnp.ones((conf.batch_size, conf.num_samples*conf.data_dim)), jnp.ones((conf.batch_size,1))
+
+params, state = f.init(random.PRNGKey(1), dummy_xs, dummy_std, conf.sigma, True)
+out, state= f.apply(params,state, dummy_xs, dummy_std, conf.sigma, True)
+# pdb.set_trace()
+
+@jit
+def full_loss(params, rng, state, x, sigma):
+    rng_1, rng_2 = jax.random.split(rng, 2) 
+    random_t = jax.random.uniform(rng_1, (x.shape[0],), minval=1e-5, maxval=1.)
+    z = jax.random.normal(rng_2, (x.shape[0],conf.num_samples*conf.data_dim))
+    std = marginal_prob_std(random_t,sigma)
+    x = jnp.concatenate(conf.num_samples*[x],axis=-1)
+    perturbed_x = x + z * std[:,None]
+    score, new_state = f.apply(params, state, perturbed_x, random_t[:, None], conf.sigma, is_training=True)
+    loss = jnp.mean(jnp.sum((score * std[:, None] + z)**2, axis=1))
+
+    return loss, new_state
+
+@jit
+def step(params, state, opt_state, xs, rng_key,sigma):
+    """ Compute the gradient for a batch and update the parameters """
+    rng_key_1, rng_key_2, rng_key_3 = random.split(rng_key, 3)
+    xs = xs[random.choice(rng_key_1, len(xs), shape=(conf.batch_size,))]
+    (loss_value, new_state), grads = value_and_grad(full_loss, has_aux=True)(params, rng_key_2, state, xs, sigma)
+    updates, opt_state = opt.update(grads, opt_state, params)
+    params = optax.apply_updates(params, updates)
+    return params, new_state, opt_state, loss_value, rng_key_3
+
+opt = optax.adam(conf.lr)
+opt_state = opt.init(params)
+
+def training_loop(params, state, num_epochs, opt_state, xs, rng_key):
+    # Get the initial set of parameters
+    train_loss = []
+    log_period = 1000
+    for i in range(num_epochs):
+        # start_time = time.time()
+        params, state, opt_state, loss_value, rng_key = step(params, state, opt_state, xs, rng_key, conf.sigma)
+        # epoch_time = time.time() - start_time
+        if i % log_period == 0: 
+          print(f"Epoch {i}: Training Loss: {loss_value}\n")
+    return train_loss, params, state
+    
+
+def train_wrapper(params, state, num_epochs, x):
+    train_loss, params, state = training_loop(params, state, num_epochs, opt_state, x, random.PRNGKey(0))
+    return train_loss, params, state
+
+
+
+
+
+
