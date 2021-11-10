@@ -37,5 +37,8 @@ class NCSN(hk.Module):
         x = hk.Linear(self.layer_sizes[1])(x)
         x = jax.nn.swish(x)
         x = hk.Linear(self.layer_sizes[2])(x)
+        x = jax.nn.swish(x)
+        x = hk.Linear(self.layer_sizes[3])(x)
         return x/marginal_prob_std(t,sigma)
+        # return x
 

@@ -6,6 +6,7 @@ from config import get_config
 import matplotlib.pyplot as plt 
 from train import f, train_wrapper
 from makedata import make_data
+# from evaluate import eval
 
 
 conf = get_config()
@@ -25,6 +26,9 @@ out, state= f.apply(params,state, dummy_xs, dummy_std, conf.sigma, True)
 #MODEL TRAINING
 train_loss, params, state = train_wrapper(params, state, conf.num_epochs, x)
 print("Model training done\n")
+
+#EVALUATION
+# print(f"Mean difference b/w Ground Truth Score and Score Model: {eval(x,params,state)}")
 
 # LANGEVIN CHAIN
 init_x = jax.random.uniform(conf.key,(num_chains,conf.data_dim*conf.num_samples),minval=-10., maxval=10.)
