@@ -32,13 +32,5 @@ class NCSN(hk.Module):
         std_embedding3 = hk.Linear(self.embed_dim)(t_proj)
 
         x = jnp.concatenate([x,std_embedding3],axis=-1)
-        x = hk.Linear(self.layer_sizes[0])(x)
-        x = jax.nn.swish(x)
-        x = hk.Linear(self.layer_sizes[1])(x)
-        x = jax.nn.swish(x)
-        x = hk.Linear(self.layer_sizes[2])(x)
-        x = jax.nn.swish(x)
-        x = hk.Linear(self.layer_sizes[3])(x)
+        x = hk.nets.MLP(self.layer_sizes)(x)
         return x/marginal_prob_std(t,sigma)
-        # return x
-
