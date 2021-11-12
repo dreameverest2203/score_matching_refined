@@ -24,7 +24,7 @@ class Config(NamedTuple):
 
 
 def get_config():
-    num_samples: int = 5
+    num_samples: int = 1
     data_dim: int = 2
 
     return Config(

@@ -4,7 +4,7 @@ from config import get_config
 import matplotlib.pyplot as plt
 from train import f, train_wrapper
 from data import get_gaussian_mixture
-from evaluate import eval
+from metrics import eval, numerical_exact_density
 import jax.random as rnd
 from jax import jit
 
@@ -22,6 +22,13 @@ data_distribution = get_gaussian_mixture(
 x = jit(data_distribution.sample, static_argnames=("sample_shape"))(
     seed=rnd.PRNGKey(0), sample_shape=(conf.n_data,)
 )
+
+# data_distribution = get_gaussian_mixture(
+#     means=[-1.0 * jnp.ones(conf.data_dim)], std=1.0, weights=[1.0],
+# )
+# x = jit(data_distribution.sample, static_argnames=("sample_shape"))(
+#     seed=rnd.PRNGKey(0), sample_shape=(conf.n_data,)
+# )
 
 
 # Initialization of Params
@@ -42,6 +49,16 @@ print(f"Loss over entire dataset: {fullloss}")
 print(
     f"Mean difference b/w Ground Truth Score and Score Model: {eval(params, state, x)}"
 )
+
+
+# def trained_score_function(xs: jnp.ndarray, t: float = 0.01):
+#     ts = jnp.ones((x.shape[0], 1)) * t
+#     return f.apply(params, state, xs, ts, conf.sigma)
+
+
+# print(
+#     f"Mean difference b/w Ground Truth Score and Score Model: {numerical_exact_density(trained_score_function, [-10, 10], 0.1, 1)}"
+# )
 
 # Langevin Chain
 init_x = rnd.uniform(
