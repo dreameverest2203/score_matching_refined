@@ -4,7 +4,7 @@ from jax import random
 def get_config():
     config = ml_collections.ConfigDict()
     config.data_dim = 2
-    config.num_samples = 4
+    config.num_samples = 1
     config.n_data = 10_000
     config.layer_sizes = [32, 32, 32, config.num_samples*config.data_dim]
     config.embed_dim = 8

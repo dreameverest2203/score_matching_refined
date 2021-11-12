@@ -8,8 +8,6 @@ import optax
 from NCSN import NCSN
 from NCSN import marginal_prob_std
 from config import get_config
-from makedata import make_data
-import pdb
 
 
 conf = get_config()
@@ -19,11 +17,10 @@ def forward_new(perturbed_x, t, sigma, is_training):
     return score_model(perturbed_x, t, sigma, is_training)
 
 f = hk.without_apply_rng(hk.transform_with_state(forward_new))
-dummy_xs, dummy_std = jnp.ones((conf.batch_size, conf.num_samples*conf.data_dim)), jnp.ones((conf.batch_size,1))
+dummy_xs, dummy_t = jnp.ones((conf.batch_size, conf.num_samples*conf.data_dim)), jnp.ones((conf.batch_size,1))
 
-params, state = f.init(random.PRNGKey(1), dummy_xs, dummy_std, conf.sigma, True)
-out, state= f.apply(params,state, dummy_xs, dummy_std, conf.sigma, True)
-# pdb.set_trace()
+params, state = f.init(random.PRNGKey(1), dummy_xs, dummy_t, conf.sigma, True)
+out, state= f.apply(params,state, dummy_xs, dummy_t, conf.sigma, True)
 
 @jit
 def full_loss(params, rng, state, x, sigma):
@@ -34,7 +31,7 @@ def full_loss(params, rng, state, x, sigma):
     x = jnp.concatenate(conf.num_samples*[x],axis=-1)
     perturbed_x = x + z * std[:,None]
     score, new_state = f.apply(params, state, perturbed_x, random_t[:, None], conf.sigma, is_training=True)
-    loss = jnp.mean(jnp.sum((score * std[:, None] + z)**2, axis=1))
+    loss = jnp.mean(jnp.sum((score * std[:, None] + z)**2, axis=-1))
 
     return loss, new_state
 
@@ -61,12 +58,13 @@ def training_loop(params, state, num_epochs, opt_state, xs, rng_key):
         # epoch_time = time.time() - start_time
         if i % log_period == 0: 
           print(f"Epoch {i}: Training Loss: {loss_value}\n")
-    return train_loss, params, state
+    fullloss = full_loss(params, rng_key, state, xs, conf.sigma)
+    return fullloss, train_loss, params, state
     
 
 def train_wrapper(params, state, num_epochs, x):
-    train_loss, params, state = training_loop(params, state, num_epochs, opt_state, x, random.PRNGKey(0))
-    return train_loss, params, state
+    fullloss, train_loss, params, state = training_loop(params, state, num_epochs, opt_state, x, random.PRNGKey(0))
+    return fullloss, train_loss, params, state
 
 
 

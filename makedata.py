@@ -7,10 +7,10 @@ conf = get_config()
 def make_data():
     gm = tfd.MixtureSameFamily(
     mixture_distribution=tfd.Categorical(
-        probs=[0.5, 0.5]), 
+        probs=[0.8, 0.2]), 
     components_distribution=tfd.MultivariateNormalDiag(
-        loc=[[-2.0] * conf.data_dim, 
-             [2.0] * conf.data_dim], 
+        loc=[[-4.0] * conf.data_dim, 
+             [4.0] * conf.data_dim], 
         scale_identity_multiplier=[1.0] * conf.data_dim)) 
 
     x = jit(gm.sample, static_argnames=("sample_shape"))(seed=random.PRNGKey(0), sample_shape=(conf.n_data,))
