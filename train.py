@@ -39,7 +39,7 @@ def full_loss(params, rng, state, x, sigma):
         params, state, perturbed_x, random_t[:, None], conf.sigma
     )
     z = jnp.reshape(z, (-1, conf.num_samples, conf.data_dim))
-    # score = jnp.concatenate(conf.num_samples * [score], axis=-1)
+    score = jnp.concatenate(conf.num_samples * [score], axis=-1)
     score = jnp.reshape(score, (-1, conf.num_samples, conf.data_dim))
     loss = jnp.mean(
         jnp.mean(jnp.sum((score * std[:, None, None] + z) ** 2, axis=-1), axis=-1)

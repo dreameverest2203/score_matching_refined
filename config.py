@@ -31,7 +31,7 @@ def get_config():
         data_dim=data_dim,
         num_samples=num_samples,
         n_data=10_000,
-        layer_sizes=[32, 32, 32, num_samples * data_dim],
+        layer_sizes=[32, 32, 32, data_dim],
         embed_dim=8,
         key=random.PRNGKey(1),
         batch_size=256,

@@ -36,8 +36,7 @@ def annealed_langevin(
             x, state = carry
             key, _ = random.split(key)
             out, state = itemwise_f(params, state, x, std)
-            pdb.set_trace()
-            # out = jnp.squeeze(jnp.concatenate([out] * conf.num_samples, axis=-1))
+            out = jnp.concatenate([out] * conf.num_samples, axis=-1)
             x = (
                 x
                 + epsilon * out.squeeze()
