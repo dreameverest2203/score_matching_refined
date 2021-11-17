@@ -4,16 +4,23 @@ from functools import partial
 from jax import random, vmap
 from train import f
 from config import get_config
+import pdb
 
 conf = get_config()
 
 
 def itemwise_f(params, state, x, std):
-    """Calls f with a single x, std, handling reshaping 
+    """Calls f with a single x, std, handling reshaping
     which is necesary for the batchnorm"""
     assert len(x.shape) == 1
     assert len(std.shape) == 1 or len(std.shape) == 0
-    return f.apply(params, state, x.reshape(1, -1), std.reshape(1, -1), conf.sigma,)
+    return f.apply(
+        params,
+        state,
+        x.reshape(1, -1),
+        std.reshape(1, -1),
+        conf.sigma,
+    )
 
 
 @partial(jax.jit, static_argnames=("n_iterations", "n_burn_in"))
@@ -29,6 +36,8 @@ def annealed_langevin(
             x, state = carry
             key, _ = random.split(key)
             out, state = itemwise_f(params, state, x, std)
+            pdb.set_trace()
+            # out = jnp.squeeze(jnp.concatenate([out] * conf.num_samples, axis=-1))
             x = (
                 x
                 + epsilon * out.squeeze()

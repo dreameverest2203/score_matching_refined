@@ -15,6 +15,7 @@ def eval(params, state, x):
     x = jnp.concatenate(conf.num_samples * [x], axis=-1)
     perturbed_x = x + z * std[:, None]
     score, state = f.apply(params, state, perturbed_x, dummy_t[:, None], conf.sigma)
+    score = jnp.concatenate(conf.num_samples * [score], axis=-1)
     ground_truth = -z / std[:, None]
     return jnp.mean(jnp.sum((ground_truth - score) ** 2, axis=-1)) / conf.num_samples
     # return jnp.mean(jnp.linalg.norm(ground_truth - score, ord = conf.num_samples, axis = -1))

@@ -6,6 +6,7 @@ import optax
 from NCSN import NCSN
 from NCSN import marginal_prob_std
 from config import get_config
+import pdb
 
 
 conf = get_config()
@@ -37,14 +38,18 @@ def full_loss(params, rng, state, x, sigma):
     score, new_state = f.apply(
         params, state, perturbed_x, random_t[:, None], conf.sigma
     )
-    loss = jnp.mean(jnp.sum((score * std[:, None] + z) ** 2, axis=-1))
-
+    z = jnp.reshape(z, (-1, conf.num_samples, conf.data_dim))
+    # score = jnp.concatenate(conf.num_samples * [score], axis=-1)
+    score = jnp.reshape(score, (-1, conf.num_samples, conf.data_dim))
+    loss = jnp.mean(
+        jnp.mean(jnp.sum((score * std[:, None, None] + z) ** 2, axis=-1), axis=-1)
+    )
     return loss, new_state
 
 
 @jit
 def step(params, state, opt_state, xs, rng_key, sigma):
-    """ Compute the gradient for a batch and update the parameters """
+    """Compute the gradient for a batch and update the parameters"""
     rng_key_1, rng_key_2, rng_key_3 = rnd.split(rng_key, 3)
     xs = xs[rnd.choice(rng_key_1, len(xs), shape=(conf.batch_size,))]
     (loss_value, new_state), grads = value_and_grad(full_loss, has_aux=True)(

@@ -4,7 +4,7 @@ from config import get_config
 import matplotlib.pyplot as plt
 from train import f, train_wrapper
 from data import get_gaussian_mixture
-from evaluate import eval
+from metrics import eval
 import jax.random as rnd
 from jax import jit
 
@@ -39,13 +39,13 @@ print("Model training done\n")
 print(f"Loss over entire dataset: {fullloss}")
 
 # Evaluation
-print(
-    f"Mean difference b/w Ground Truth Score and Score Model: {eval(params, state, x)}"
-)
+# print(
+#     f"Mean difference b/w Ground Truth Score and Score Model: {eval(params, state, x)}"
+# )
 
 # Langevin Chain
 init_x = rnd.uniform(
-    conf.key, (num_chains, conf.data_dim * conf.num_samples), minval=-10.0, maxval=10.0
+    conf.key, (num_chains, conf.num_samples * conf.data_dim), minval=-10.0, maxval=10.0
 )
 key_array = rnd.split(rnd.PRNGKey(10), init_x.shape[0])
 out = chain_langevin(
