@@ -6,10 +6,10 @@ import haiku as hk
 def marginal_prob_std(t, sigma):
     """Compute the mean and standard deviation of $p_{0t}(x(t) | x(0))$.
 
-    Args:    
+    Args:
         t: A vector of time steps.
-        sigma: The $\\sigma$ in our SDE.  
-    
+        sigma: The $\\sigma$ in our SDE.
+
     Returns:
         The standard deviation.
     """
@@ -34,4 +34,4 @@ class NCSN(hk.Module):
 
         x = jnp.concatenate([x, std_embedding3], axis=-1)
         x = hk.nets.MLP(self.layer_sizes)(x)
-        return x / marginal_prob_std(t, sigma)
+        return x
