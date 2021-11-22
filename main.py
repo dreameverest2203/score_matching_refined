@@ -12,6 +12,7 @@ from jax import jit
 conf = get_config()
 
 num_chains = 10
+noise_scales = jnp.array([10.0, 5.0, 1.0, 0.1])
 
 # Make Dataset
 data_distribution = get_gaussian_mixture(
@@ -44,16 +45,19 @@ print(f"Loss over entire dataset: {fullloss}")
 # )
 
 # Langevin Chain
-init_x = rnd.uniform(
-    conf.key, (num_chains, conf.num_samples * conf.data_dim), minval=-10.0, maxval=10.0
+init_x = rnd.uniform(conf.key, (num_chains, conf.data_dim), minval=-10.0, maxval=10.0)
+init_x = jnp.concatenate([init_x] * conf.num_samples, axis=-1)
+init_x = init_x + noise_scales[0] * rnd.normal(
+    rnd.PRNGKey(3), (num_chains, conf.num_samples * conf.data_dim)
 )
+
 key_array = rnd.split(rnd.PRNGKey(10), init_x.shape[0])
 out = chain_langevin(
     params,
     state,
     key_array,
     init_x,
-    jnp.array([10.0, 5.0, 1.0, 0.1]),
+    noise_scales,
     conf.langevin_stepsize,
     conf.langevin_iterations,
     conf.langevin_burnin,

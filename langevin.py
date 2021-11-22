@@ -3,6 +3,7 @@ import jax.numpy as jnp
 from functools import partial
 from jax import random, vmap
 from train import f
+from NCSN import marginal_prob_std
 from config import get_config
 import pdb
 
@@ -37,9 +38,10 @@ def annealed_langevin(
             key, _ = random.split(key)
             out, state = itemwise_f(params, state, x, std)
             out = jnp.concatenate([out] * conf.num_samples, axis=-1)
+            score = (out - x) / marginal_prob_std(std, conf.sigma) ** 2
             x = (
                 x
-                + epsilon * out.squeeze()
+                + epsilon * score.squeeze()
                 + jnp.sqrt(2 * epsilon) * random.normal(key, shape=x.shape)
             )
             return (x, state), x

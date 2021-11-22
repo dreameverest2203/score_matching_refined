@@ -33,17 +33,19 @@ def full_loss(params, rng, state, x, sigma):
     random_t = rnd.uniform(rng_1, (x.shape[0],), minval=1e-5, maxval=1.0)
     z = rnd.normal(rng_2, (x.shape[0], conf.num_samples * conf.data_dim))
     std = marginal_prob_std(random_t, sigma)
-    x = jnp.concatenate(conf.num_samples * [x], axis=-1)
-    perturbed_x = x + z * std[:, None]
-    score, new_state = f.apply(
+    perturbed_x = jnp.concatenate(conf.num_samples * [x], axis=-1)
+    perturbed_x = perturbed_x + z * std[:, None]
+    output, new_state = f.apply(
         params, state, perturbed_x, random_t[:, None], conf.sigma
     )
-    z = jnp.reshape(z, (-1, conf.num_samples, conf.data_dim))
-    score = jnp.concatenate(conf.num_samples * [score], axis=-1)
-    score = jnp.reshape(score, (-1, conf.num_samples, conf.data_dim))
-    loss = jnp.mean(
-        jnp.mean(jnp.sum((score * std[:, None, None] + z) ** 2, axis=-1), axis=-1)
-    )
+    # z = jnp.reshape(z, (-1, conf.num_samples, conf.data_dim))
+    # output = jnp.concatenate(conf.num_samples * [output], axis=-1)
+    # output = jnp.reshape(output, (-1, conf.num_samples, conf.data_dim))
+    # loss = jnp.mean(
+    #     jnp.mean(jnp.sum((output * std[:, None, None] + z) ** 2, axis=-1), axis=-1)
+    # )
+    # pdb.set_trace()
+    loss = jnp.mean(jnp.sum((output - x) ** 2, axis=-1))
     return loss, new_state
 
 
