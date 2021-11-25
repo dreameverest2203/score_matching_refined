@@ -12,6 +12,8 @@ class Config(NamedTuple):
     num_samples: int
     n_data: int
     layer_sizes: List[int]
+    channels: List[int]
+    scale: int
     embed_dim: int
     key: jnp.ndarray
     batch_size: int
@@ -32,7 +34,9 @@ def get_config():
         num_samples=num_samples,
         n_data=10_000,
         layer_sizes=[32, 32, 32, data_dim],
-        embed_dim=8,
+        channels=[32, 64, 128, 256],
+        scale=30,
+        embed_dim=256,
         key=random.PRNGKey(1),
         batch_size=256,
         sigma=25,

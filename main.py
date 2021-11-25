@@ -8,6 +8,10 @@ from metrics import eval
 import jax.random as rnd
 from jax import jit
 
+# from torch.utils.data import DataLoader
+# from torchvision.datasets import MNIST
+import tensorflow_datasets as tfds
+import tensorflow as tf
 
 conf = get_config()
 
@@ -15,23 +19,29 @@ num_chains = 10
 noise_scales = jnp.array([10.0, 5.0, 1.0, 0.1])
 
 # Make Dataset
-data_distribution = get_gaussian_mixture(
-    means=[-4.0 * jnp.ones(conf.data_dim), 4.0 * jnp.ones(conf.data_dim)],
-    std=1.0,
-    weights=[0.8, 0.2],
-)
-x = jit(data_distribution.sample, static_argnames=("sample_shape"))(
-    seed=rnd.PRNGKey(0), sample_shape=(conf.n_data,)
-)
+# data_distribution = get_gaussian_mixture(
+#     means=[-4.0 * jnp.ones(conf.data_dim), 4.0 * jnp.ones(conf.data_dim)],
+#     std=1.0,
+#     weights=[0.8, 0.2],
+# )
+# x = jit(data_distribution.sample, static_argnames=("sample_shape"))(
+#     seed=rnd.PRNGKey(0), sample_shape=(conf.n_data,)
+# )
 
+ds = tfds.load("mnist", split="train", shuffle_files=True)
+ds = ds.shuffle(60000).batch(60000).prefetch(tf.data.AUTOTUNE)
+for example in ds.take(1):
+    images, labels = example["image"], example["label"]
+
+plt.imshow(images[5].numpy().squeeze(), cmap="gray")
+x = images.numpy()
 
 # Initialization of Params
-dummy_xs, dummy_std = (
-    jnp.zeros((conf.batch_size, conf.num_samples * conf.data_dim)),
-    jnp.zeros((conf.batch_size, 1)),
-)
-params, state = f.init(rnd.PRNGKey(1), dummy_xs, dummy_std, conf.sigma)
-out, state = f.apply(params, state, dummy_xs, dummy_std, conf.sigma)
+dummy_xs, dummy_t = jnp.ones(
+    (conf.batch_size, conf.data_dim * conf.num_samples)
+), jnp.ones(conf.batch_size)
+params, state = f.init(rnd.PRNGKey(1), dummy_xs, dummy_t, conf.sigma, True)
+out, state = f.apply(params, state, dummy_xs, dummy_t, conf.sigma, True)
 
 
 # Model Training
