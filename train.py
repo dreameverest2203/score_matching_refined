@@ -21,15 +21,14 @@ def forward_new(perturbed_x, t, sigma):
 
 
 f = hk.without_apply_rng(hk.transform_with_state(forward_new))
-dummy_xs, dummy_t = jnp.ones((conf.batch_size, 28, 28, conf.num_samples)), jnp.ones(
-    conf.batch_size
+dummy_xs, dummy_t = jnp.ones((conf.batch_size, 28, 28, conf.num_samples)), jnp.zeros(
+    (conf.batch_size, 1, 1, conf.num_samples)
 )
 # dummy_xs, dummy_t = jnp.ones(
 #     (conf.batch_size, conf.data_dim * conf.num_samples)
 # ), jnp.ones(conf.batch_size)
 
 
-# pdb.set_trace()
 params, state = f.init(rnd.PRNGKey(1), dummy_xs, dummy_t, conf.sigma)
 out, state = f.apply(params, state, dummy_xs, dummy_t, conf.sigma)
 
@@ -37,16 +36,18 @@ out, state = f.apply(params, state, dummy_xs, dummy_t, conf.sigma)
 @jit
 def full_loss(params, rng, state, x, sigma):
     rng_1, rng_2 = rnd.split(rng, 2)
-    random_t = rnd.uniform(rng_1, (x.shape[0],), minval=1e-5, maxval=1.0)
-    z = rnd.normal(rng_2, (x.shape[0], conf.num_samples) + x.shape[1:])
+    # random_t = rnd.uniform(rng_1, (x.shape[0],), minval=1e-5, maxval=1.0)
+    random_t = rnd.uniform(
+        rng_1, (x.shape[0], 1, 1, conf.num_samples), minval=1e-5, maxval=1.0
+    )
     std = marginal_prob_std(random_t, sigma)
     # perturbed_x = jnp.concatenate(conf.num_samples * [x], axis=-1)
-    perturbed_x = jnp.concatenate(conf.num_samples * [x], axis=1)
-    perturbed_x = perturbed_x + z * std[:, None]
-    output, new_state = f.apply(
-        params, state, perturbed_x, random_t[:, None], conf.sigma
-    )
-    loss = jnp.mean(jnp.mean(jnp.sum((output - x) ** 2, axis=(1, 2)), axis=-1))
+    perturbed_x = jnp.concatenate(conf.num_samples * [x], axis=-1)
+    z = rnd.normal(rng_2, perturbed_x.shape)
+    perturbed_x = perturbed_x + z * std
+    # pdb.set_trace()
+    output, new_state = f.apply(params, state, perturbed_x, random_t, conf.sigma)
+    loss = jnp.mean(jnp.mean(jnp.sum((output - x) ** 2, axis=(1, 2, 3)), axis=-1))
     # loss = jnp.mean(jnp.sum((output - x) ** 2, axis=1), axis=-1)
     return loss, new_state
 

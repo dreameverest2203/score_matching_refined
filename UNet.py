@@ -10,20 +10,23 @@ class DAE(hk.Module):
     def __init__(self):
         super().__init__(name=None)
         self.channels = conf.channels
-        self.embed_dim = conf.embed_dim
-        self.scale = conf.scale
+        self.embed_dim = 64
+        self.scale = 30.0
 
     def __call__(self, x, t, sigma, is_training=True):
         # The swish activation function
         act = jax.nn.swish
+
         w = hk.get_parameter(
-            "w", (self.embed_dim // 2,), init=hk.initializers.RandomNormal(self.scale)
+            "w",
+            ((self.embed_dim * conf.num_samples) // 2,),
+            init=hk.initializers.RandomNormal(self.scale),
         )
         w = jax.lax.stop_gradient(w)
-        t_proj = t[:, None] * w[None, :] * 2 * jnp.pi
+        t = jnp.tile(t, (1, 1, 1, self.embed_dim // 2))
+        t_proj = t * w[None, None, None, :] * 2 * jnp.pi
         t_proj = jnp.concatenate([jnp.sin(t_proj), jnp.cos(t_proj)], axis=-1)
-        std_embedding = hk.Linear(self.embed_dim)(t_proj)
-        std_embedding = std_embedding[:, None, None, :]
+        std_embedding = hk.Linear(self.embed_dim * conf.num_samples)(t_proj)
         std_embedding = act(std_embedding)
 
         # Encoding path
@@ -84,11 +87,3 @@ class DAE(hk.Module):
         )
 
         return h
-
-
-def forward_new(perturbed_x, t, sigma, is_training):
-    denoiser = DAE()
-    return denoiser(perturbed_x, t, sigma, is_training)
-
-
-f = hk.without_apply_rng(hk.transform_with_state(forward_new))

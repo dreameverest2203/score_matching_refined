@@ -40,7 +40,7 @@ def get_config():
         key=random.PRNGKey(1),
         batch_size=256,
         sigma=25,
-        num_epochs=50_000,
+        num_epochs=50,
         lr=1e-3,
         langevin_iterations=100_000,
         langevin_burnin=80_000,

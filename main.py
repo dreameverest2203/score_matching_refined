@@ -1,12 +1,15 @@
 import jax.numpy as jnp
-from langevin import chain_langevin
+
+# from langevin import chain_langevin
 from config import get_config
 import matplotlib.pyplot as plt
 from train import f, train_wrapper
-from data import get_gaussian_mixture
+
+# from data import get_gaussian_mixture
 from metrics import eval
 import jax.random as rnd
 from jax import jit
+import pdb
 
 # from torch.utils.data import DataLoader
 # from torchvision.datasets import MNIST
@@ -37,12 +40,16 @@ plt.imshow(images[5].numpy().squeeze(), cmap="gray")
 x = images.numpy()
 
 # Initialization of Params
-dummy_xs, dummy_t = jnp.ones(
-    (conf.batch_size, conf.data_dim * conf.num_samples)
-), jnp.ones(conf.batch_size)
-params, state = f.init(rnd.PRNGKey(1), dummy_xs, dummy_t, conf.sigma, True)
-out, state = f.apply(params, state, dummy_xs, dummy_t, conf.sigma, True)
-
+# pdb.set_trace()
+# dummy_xs, dummy_t = jnp.ones(
+#     (conf.batch_size, conf.data_dim * conf.num_samples)
+# ), jnp.ones(conf.batch_size)
+dummy_xs, dummy_t = jnp.ones((conf.batch_size, 28, 28, conf.num_samples)), jnp.zeros(
+    (conf.batch_size, 1, 1, conf.num_samples)
+)
+params, state = f.init(rnd.PRNGKey(1), dummy_xs, dummy_t, conf.sigma)
+out, state = f.apply(params, state, dummy_xs, dummy_t, conf.sigma)
+# pdb.set_trace()
 
 # Model Training
 fullloss, train_loss, params, state = train_wrapper(params, state, conf.num_epochs, x)
@@ -61,22 +68,22 @@ init_x = init_x + noise_scales[0] * rnd.normal(
     rnd.PRNGKey(3), (num_chains, conf.num_samples * conf.data_dim)
 )
 
-key_array = rnd.split(rnd.PRNGKey(10), init_x.shape[0])
-out = chain_langevin(
-    params,
-    state,
-    key_array,
-    init_x,
-    noise_scales,
-    conf.langevin_stepsize,
-    conf.langevin_iterations,
-    conf.langevin_burnin,
-)
+# key_array = rnd.split(rnd.PRNGKey(10), init_x.shape[0])
+# out = chain_langevin(
+#     params,
+#     state,
+#     key_array,
+#     init_x,
+#     noise_scales,
+#     conf.langevin_stepsize,
+#     conf.langevin_iterations,
+#     conf.langevin_burnin,
+# )
 
-# Plotting
-fig, ax = plt.subplots()
-for i, x in enumerate(out):
-    ax.scatter(x[:, 0], x[:, 1], label=i)
+# # Plotting
+# fig, ax = plt.subplots()
+# for i, x in enumerate(out):
+#     ax.scatter(x[:, 0], x[:, 1], label=i)
 
-plt.legend(loc="upper left")
-plt.savefig("trial.png")
+# plt.legend(loc="upper left")
+# plt.savefig("trial.png")
