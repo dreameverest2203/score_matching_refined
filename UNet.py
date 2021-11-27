@@ -10,8 +10,8 @@ class DAE(hk.Module):
     def __init__(self):
         super().__init__(name=None)
         self.channels = conf.channels
-        self.embed_dim = 64
-        self.scale = 30.0
+        self.embed_dim = conf.embed_dim
+        self.scale = conf.scale
 
     def __call__(self, x, t, sigma, is_training=True):
         # The swish activation function

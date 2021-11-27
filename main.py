@@ -1,89 +1,105 @@
 import jax.numpy as jnp
-
-# from langevin import chain_langevin
+from langevin import chain_langevin
 from config import get_config
 import matplotlib.pyplot as plt
 from train import f, train_wrapper
-
-# from data import get_gaussian_mixture
-from metrics import eval
+import numpy as np
 import jax.random as rnd
-from jax import jit
+from torch.utils.data import DataLoader
+from torchvision.datasets import MNIST
+import torchvision.transforms as transforms
+import pickle
+import torch
+from torchvision.utils import make_grid
+from torchvision.utils import save_image
 import pdb
+import warnings
+import tqdm
 
-# from torch.utils.data import DataLoader
-# from torchvision.datasets import MNIST
-import tensorflow_datasets as tfds
-import tensorflow as tf
+warnings.filterwarnings("ignore")
+
 
 conf = get_config()
 
-num_chains = 10
-noise_scales = jnp.array([10.0, 5.0, 1.0, 0.1])
 
-# Make Dataset
-# data_distribution = get_gaussian_mixture(
-#     means=[-4.0 * jnp.ones(conf.data_dim), 4.0 * jnp.ones(conf.data_dim)],
-#     std=1.0,
-#     weights=[0.8, 0.2],
+dataset = MNIST(".", train=True, transform=transforms.ToTensor(), download=True)
+
+data_loader = DataLoader(dataset, batch_size=len(dataset), shuffle=True)
+for i, l in data_loader:
+    images, labels = i, l
+
+x = images.permute(0, 2, 3, 1).numpy()
+
+# Load Saved Model
+with open("dae_model_8samples.pickle", "rb") as handle:
+    params, state = pickle.load(handle)
+
+
+# # Initialization of Params
+# dummy_xs, dummy_t = jnp.ones((conf.batch_size, 28, 28, conf.num_samples)), jnp.zeros(
+#     (conf.batch_size, 1, 1, conf.num_samples)
 # )
-# x = jit(data_distribution.sample, static_argnames=("sample_shape"))(
-#     seed=rnd.PRNGKey(0), sample_shape=(conf.n_data,)
-# )
 
-ds = tfds.load("mnist", split="train", shuffle_files=True)
-ds = ds.shuffle(60000).batch(60000).prefetch(tf.data.AUTOTUNE)
-for example in ds.take(1):
-    images, labels = example["image"], example["label"]
 
-plt.imshow(images[5].numpy().squeeze(), cmap="gray")
-x = images.numpy()
+# params, state = f.init(rnd.PRNGKey(1), dummy_xs, dummy_t, conf.sigma, True)
+# out, state = f.apply(params, state, dummy_xs, dummy_t, conf.sigma, True)
 
-# Initialization of Params
-# pdb.set_trace()
-# dummy_xs, dummy_t = jnp.ones(
-#     (conf.batch_size, conf.data_dim * conf.num_samples)
-# ), jnp.ones(conf.batch_size)
-dummy_xs, dummy_t = jnp.ones((conf.batch_size, 28, 28, conf.num_samples)), jnp.zeros(
-    (conf.batch_size, 1, 1, conf.num_samples)
-)
-params, state = f.init(rnd.PRNGKey(1), dummy_xs, dummy_t, conf.sigma)
-out, state = f.apply(params, state, dummy_xs, dummy_t, conf.sigma)
-# pdb.set_trace()
+# # # Model Training
+# fullloss, train_loss, params, state = train_wrapper(params, state, conf.num_epochs, x)
+# print("Model training done\n")
+# print(f"Loss over entire dataset: {fullloss}")
 
-# Model Training
-fullloss, train_loss, params, state = train_wrapper(params, state, conf.num_epochs, x)
-print("Model training done\n")
-print(f"Loss over entire dataset: {fullloss}")
+with open("dae_model_8samples.pickle", "wb") as handle:
+    pickle.dump((params, state), handle)
 
-# Evaluation
-# print(
-#     f"Mean difference b/w Ground Truth Score and Score Model: {eval(params, state, x)}"
-# )
 
 # Langevin Chain
-init_x = rnd.uniform(conf.key, (num_chains, conf.data_dim), minval=-10.0, maxval=10.0)
-init_x = jnp.concatenate([init_x] * conf.num_samples, axis=-1)
-init_x = init_x + noise_scales[0] * rnd.normal(
-    rnd.PRNGKey(3), (num_chains, conf.num_samples * conf.data_dim)
+init_x = rnd.uniform(conf.key, (3, 28, 28, conf.num_samples), minval=0.0, maxval=1.0)
+key_array = rnd.split(rnd.PRNGKey(15), init_x.shape[0])
+key_array = rnd.split(rnd.PRNGKey(15), init_x.shape[0])
+
+out = chain_langevin(
+    params,
+    state,
+    key_array,
+    init_x,
+    jnp.flip(jnp.array([1e-3, 1e-1, 5e-1, 1])),
+    1e-4,
+    80,
+    0,
 )
+out = jnp.clip(out, 0.0, 1.0)
 
-# key_array = rnd.split(rnd.PRNGKey(10), init_x.shape[0])
-# out = chain_langevin(
-#     params,
-#     state,
-#     key_array,
-#     init_x,
-#     noise_scales,
-#     conf.langevin_stepsize,
-#     conf.langevin_iterations,
-#     conf.langevin_burnin,
-# )
 
-# # Plotting
-# fig, ax = plt.subplots()
-# for i, x in enumerate(out):
-#     ax.scatter(x[:, 0], x[:, 1], label=i)
+chain_num = 3
+denoised_sample = 1
 
-# plt.legend(loc="upper left")
-# plt.savefig("trial.png")
+grid_img = np.array(out)
+grid_img = torch.from_numpy(grid_img)
+indices = np.arange(0, 80, 10)
+grid_img = grid_img[:, indices, :, :, denoised_sample - 1]
+grid_img = torch.reshape(grid_img[:, :, None, :], (-1, 1, 28, 28))
+save_image(grid_img, fp="MNIST.png", nrow=len(indices))
+
+
+# grid_img = np.array(out)
+# grid_img = torch.from_numpy(grid_img)
+# indices = [
+#     0,
+#     5,
+#     10,
+#     15,
+#     20,
+#     25,
+#     30,
+#     35,
+#     40,
+#     45,
+# ]  # , 50, 55, 60, 65, 70, 75, 80, 85, 90, 95]
+# grid_img = grid_img[chain_num - 3, indices, :, :, denoised_sample - 1]
+# grid_img = grid_img[:, None, :, :]
+# grid_img = make_grid(grid_img, nrow=10)
+# plt.rcParams["figure.figsize"] = [25, 5]
+# plt.imshow(grid_img.permute(1, 2, 0), cmap="gray")
+# plt.show()
+# plt.savefig("anuj.png")

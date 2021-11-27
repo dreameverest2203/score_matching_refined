@@ -26,22 +26,22 @@ class Config(NamedTuple):
 
 
 def get_config():
-    num_samples: int = 5
+    num_samples: int = 4
     data_dim: int = 2
 
     return Config(
         data_dim=data_dim,
         num_samples=num_samples,
-        n_data=10_000,
+        n_data=25_000,
         layer_sizes=[32, 32, 32, data_dim],
         channels=[32, 64, 128, 256],
         scale=30,
-        embed_dim=256,
+        embed_dim=64,
         key=random.PRNGKey(1),
         batch_size=256,
         sigma=25,
-        num_epochs=50,
-        lr=1e-3,
+        num_epochs=2_500,
+        lr=1e-4,
         langevin_iterations=100_000,
         langevin_burnin=80_000,
         langevin_stepsize=1e-4,
