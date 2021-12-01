@@ -2,8 +2,22 @@ import jax
 import jax.numpy as jnp
 import haiku as hk
 from config import get_config
+import pdb
 
 conf = get_config()
+
+
+def marginal_prob_std(t, sigma):
+    """Compute the mean and standard deviation of $p_{0t}(x(t) | x(0))$.
+
+    Args:
+        t: A vector of time steps.
+        sigma: The $\\sigma$ in our SDE.
+
+    Returns:
+        The standard deviation.
+    """
+    return jnp.sqrt((sigma ** (2 * t) - 1.0) / 2.0 / jnp.log(sigma))
 
 
 class DAE(hk.Module):
@@ -18,15 +32,12 @@ class DAE(hk.Module):
         act = jax.nn.swish
 
         w = hk.get_parameter(
-            "w",
-            ((self.embed_dim * conf.num_samples) // 2,),
-            init=hk.initializers.RandomNormal(self.scale),
+            "w", (self.embed_dim // 2,), init=hk.initializers.RandomNormal(self.scale)
         )
         w = jax.lax.stop_gradient(w)
-        t = jnp.tile(t, (1, 1, 1, self.embed_dim // 2))
-        t_proj = t * w[None, None, None, :] * 2 * jnp.pi
+        t_proj = t[:, None, None, None] * w[None, None, None, :] * 2 * jnp.pi
         t_proj = jnp.concatenate([jnp.sin(t_proj), jnp.cos(t_proj)], axis=-1)
-        std_embedding = hk.Linear(self.embed_dim * conf.num_samples)(t_proj)
+        std_embedding = hk.Linear(self.embed_dim)(t_proj)
         std_embedding = act(std_embedding)
 
         # Encoding path
@@ -62,7 +73,7 @@ class DAE(hk.Module):
 
         # Decoding path
         h = hk.Conv2DTranspose(
-            self.channels[2], (3, 3), (2, 2), padding=((2, 2), (2, 2)), with_bias=False
+            self.channels[2], (3, 3), (3, 3), padding=((2, 2), (2, 2)), with_bias=False
         )(h4)
         ## Skip connection from the encoding path
         h += hk.Linear(self.channels[2])(std_embedding)
@@ -82,7 +93,7 @@ class DAE(hk.Module):
         h += hk.Linear(self.channels[0])(std_embedding)
         h = hk.GroupNorm(32)(h)
         h = act(h)
-        h = hk.Conv2DTranspose(1, (3, 3), (1, 1), padding=((2, 2), (2, 2)))(
+        h = hk.Conv2DTranspose(3, (3, 3), (1, 1), padding=((2, 2), (2, 2)))(
             jnp.concatenate([h, h1], axis=-1)
         )
 

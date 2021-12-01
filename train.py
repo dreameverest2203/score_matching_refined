@@ -19,10 +19,10 @@ def forward_new(perturbed_x, t, sigma, is_training):
 
 
 f = hk.without_apply_rng(hk.transform_with_state(forward_new))
-dummy_xs, dummy_t = jnp.ones((conf.batch_size, 28, 28, conf.num_samples)), jnp.zeros(
-    (conf.batch_size, 1, 1, conf.num_samples)
-)
 
+dummy_xs, dummy_t = jnp.ones(
+    (conf.batch_size, 32, 32, 3 * conf.num_samples)
+), jnp.zeros((conf.batch_size,))
 params, state = f.init(rnd.PRNGKey(1), dummy_xs, dummy_t, conf.sigma, True)
 out, state = f.apply(params, state, dummy_xs, dummy_t, conf.sigma, True)
 
@@ -30,20 +30,17 @@ out, state = f.apply(params, state, dummy_xs, dummy_t, conf.sigma, True)
 @jit
 def full_loss(params, rng, state, x, sigma):
     rng_1, rng_2 = rnd.split(rng, 2)
-
-    random_t = rnd.uniform(
-        rng_1, (x.shape[0], 1, 1, conf.num_samples), minval=1e-5, maxval=1.0
-    )
+    random_t = rnd.uniform(rng_1, (x.shape[0],), minval=1e-5, maxval=1)
     std = marginal_prob_std(random_t, sigma)
-
+    std = std[:, None, None, None]
     x_stacked = jnp.concatenate(conf.num_samples * [x], axis=-1)
     z = rnd.normal(rng_2, x_stacked.shape)
     perturbed_x = x_stacked + z * std
     perturbed_x = jnp.clip(perturbed_x, 0.0, 1.0)
-
     x_est, new_state = f.apply(
         params, state, perturbed_x, random_t, sigma, is_training=True
     )
+
     loss = jnp.mean(jnp.sum((x - x_est) ** 2, axis=(1, 2, 3)))
     return loss, new_state
 

@@ -6,9 +6,6 @@ from train import f
 from NCSN import marginal_prob_std
 from config import get_config
 import pdb
-import warnings
-
-warnings.filterwarnings("ignore")
 
 
 conf = get_config()
@@ -20,8 +17,7 @@ def itemwise_f(params, state, x, std):
     assert len(x.shape) == 3
     assert len(std.shape) == 1 or len(std.shape) == 0
     expanded_x = jnp.expand_dims(x, axis=0)
-    expanded_std = jnp.expand_dims(std, axis=(0, 1, 2, 3))
-    expanded_std = jnp.tile(expanded_std, (1, 1, 1, conf.num_samples))
+    expanded_std = jnp.expand_dims(std, axis=0)
     return f.apply(
         params, state, expanded_x, expanded_std, conf.sigma, is_training=False
     )
