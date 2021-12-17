@@ -2,7 +2,6 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 from scipy import integrate
-from train import f
 from config import get_config
 import pdb
 from UNet import marginal_prob_std
@@ -25,7 +24,7 @@ def prior_likelihood(z, sigma):
     ) / (2 * sigma ** 2)
 
 
-def score_fn(params, state, x, t):
+def score_fn(f, params, state, x, t):
     perturbed_x = jnp.concatenate([x] * conf.num_samples, axis=-1)
     t = jnp.squeeze(t, axis=1)
     out = f.apply(params, state, perturbed_x, t, conf.sigma, True)
@@ -39,12 +38,7 @@ def score_fn(params, state, x, t):
 
 
 def ode_likelihood(
-    rng,
-    x,
-    params,
-    state,
-    batch_size,
-    eps=1e-5,
+    f, rng, x, params, state, batch_size, eps=1e-5,
 ):
     """Compute the likelihood with probability flow ODE.
 
@@ -67,7 +61,9 @@ def ode_likelihood(
     def divergence_eval(sample, time_steps):
         """Compute the divergence of the score-based model with Skilling-Hutchinson."""
         epsilon = jax.random.normal(rng, sample.shape)
-        score_e_fn = lambda x: jnp.sum(score_fn(params, state, x, time_steps) * epsilon)
+        score_e_fn = lambda x: jnp.sum(
+            score_fn(f, params, state, x, time_steps) * epsilon
+        )
         grad_score_e = jax.grad(score_e_fn)(sample)
         return jnp.sum(grad_score_e * epsilon, axis=(1, 2, 3))
 
@@ -79,7 +75,7 @@ def ode_likelihood(
         sample = jnp.asarray(sample, dtype=jnp.float32).reshape(shape)
         sample = jnp.squeeze(sample, axis=1)
         time_steps = jnp.asarray(time_steps, dtype=jnp.float32).reshape(time_shape)
-        score = score_fn(params, state, sample, time_steps)
+        score = score_fn(f, params, state, sample, time_steps)
         return np.asarray(score).reshape((-1,)).astype(np.float64)
 
     def divergence_eval_wrapper(sample, time_steps):
@@ -120,26 +116,22 @@ def ode_likelihood(
     return z, bpd
 
 
-with open(f"model_weights/dae_model_{conf.num_samples}samples.pickle", "rb") as handle:
-    params, state = pickle.load(handle)
+# with open(f"model_weights/dae_model_{conf.num_samples}samples.pickle", "rb") as handle:
+#     params, state = pickle.load(handle)
 
-sample_batch_size = 128
-dataset = MNIST(".", train=False, transform=transforms.ToTensor(), download=True)
-data_loader = DataLoader(
-    dataset,
-    batch_size=sample_batch_size,
-    shuffle=True,
-)
-all_bpds = 0.0
-all_items = 0
-rng = jax.random.PRNGKey(100)
-tqdm_data = tqdm.tqdm(data_loader)
-for x, _ in tqdm_data:
-    x = x.permute(0, 2, 3, 1).cpu().numpy().reshape((-1, 1, 28, 28, 1))
-    rng, step_rng = jax.random.split(rng)
-    z = jax.random.uniform(step_rng, x.shape)
-    x = (x * 255.0 + z) / 256.0
-    _, bpd = ode_likelihood(step_rng, x, params, state, sample_batch_size, eps=1e-5)
-    all_bpds += bpd.sum()
-    all_items += bpd.shape[0] * bpd.shape[1]
-    tqdm_data.set_description("Average bits/dim: {:5f}".format(all_bpds / all_items))
+# sample_batch_size = 128
+# dataset = MNIST(".", train=False, transform=transforms.ToTensor(), download=True)
+# data_loader = DataLoader(dataset, batch_size=sample_batch_size, shuffle=True,)
+# all_bpds = 0.0
+# all_items = 0
+# rng = jax.random.PRNGKey(100)
+# tqdm_data = tqdm.tqdm(data_loader)
+# for x, _ in tqdm_data:
+#     x = x.permute(0, 2, 3, 1).cpu().numpy().reshape((-1, 1, 28, 28, 1))
+#     rng, step_rng = jax.random.split(rng)
+#     z = jax.random.uniform(step_rng, x.shape)
+#     x = (x * 255.0 + z) / 256.0
+#     _, bpd = ode_likelihood(step_rng, x, params, state, sample_batch_size, eps=1e-5)
+#     all_bpds += bpd.sum()
+#     all_items += bpd.shape[0] * bpd.shape[1]
+#     tqdm_data.set_description("Average bits/dim: {:5f}".format(all_bpds / all_items))

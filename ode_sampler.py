@@ -1,20 +1,15 @@
 from scipy import integrate
-import jax
 import jax.numpy as jnp
-from train import f
 from config import get_config
 import numpy as np
-from UNet import marginal_prob_std
-import pdb
+
+# from UNet import marginal_prob_std
 
 conf = get_config()
 
 
 def ode_sampler(
-    params,
-    state,
-    init_x,
-    eps=1e-3,
+    f, params, state, init_x, eps=1e-3,
 ):
     """Generate samples from score-based models with black-box ODE solvers.
 
@@ -27,8 +22,6 @@ def ode_sampler(
     """
     time_shape = (conf.chain_length,)
     sample_shape = (conf.chain_length, 28, 28, conf.num_samples)
-
-    shape = init_x.shape
 
     def score_eval_wrapper(sample, time_steps):
         """A wrapper of the score-based model for use by the ODE solver."""
@@ -48,7 +41,7 @@ def ode_sampler(
         return -0.5 * (g ** 2) * score_eval_wrapper(x, time_steps)
 
     # Run the black-box ODE solver.
-    res = integrate.solve_ivp(
+    result = integrate.solve_ivp(
         ode_func,
         (1.0, eps),
         np.asarray(init_x).reshape(-1),
@@ -56,7 +49,7 @@ def ode_sampler(
         atol=conf.error_tolerance,
         method="RK45",
     )
-    print(f"Number of function evaluations: {res.nfev}")
-    x = jnp.asarray(res.y[:, -1]).reshape(shape)
+    print(f"Number of function evaluations: {result.nfev}")
+    # x = jnp.asarray(result.y[:, -1]).reshape(shape)
 
-    return x
+    return result.y

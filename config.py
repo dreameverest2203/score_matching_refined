@@ -1,6 +1,7 @@
 from jax import random
 from typing import NamedTuple, List
 from jax import numpy as jnp
+from jax._src.prng import PRNGKeyArray
 
 
 # Changed this from ml_collections since ml_collections
@@ -15,7 +16,7 @@ class Config(NamedTuple):
     channels: List[int]
     scale: int
     embed_dim: int
-    key: jnp.ndarray
+    key: PRNGKeyArray
     batch_size: int
     chain_length: int
     sigma: int
@@ -25,6 +26,7 @@ class Config(NamedTuple):
     langevin_iterations: int
     langevin_burnin: int
     langevin_stepsize: float
+    use_wandb: bool
 
 
 def get_config():
@@ -49,4 +51,5 @@ def get_config():
         langevin_iterations=100_000,
         langevin_burnin=80_000,
         langevin_stepsize=1e-4,
+        use_wandb=True,
     )
