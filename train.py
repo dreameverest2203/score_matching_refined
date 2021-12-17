@@ -20,9 +20,9 @@ def forward_new(perturbed_x, t, sigma, is_training):
 
 f = hk.without_apply_rng(hk.transform_with_state(forward_new))
 
-dummy_xs, dummy_t = jnp.ones(
-    (conf.batch_size, 32, 32, 3 * conf.num_samples)
-), jnp.zeros((conf.batch_size,))
+dummy_xs, dummy_t = jnp.ones((conf.batch_size, 28, 28, conf.num_samples)), jnp.zeros(
+    (conf.batch_size,)
+)
 params, state = f.init(rnd.PRNGKey(1), dummy_xs, dummy_t, conf.sigma, True)
 out, state = f.apply(params, state, dummy_xs, dummy_t, conf.sigma, True)
 
@@ -35,13 +35,17 @@ def full_loss(params, rng, state, x, sigma):
     std = std[:, None, None, None]
     x_stacked = jnp.concatenate(conf.num_samples * [x], axis=-1)
     z = rnd.normal(rng_2, x_stacked.shape)
-    perturbed_x = x_stacked + z * std
-    perturbed_x = jnp.clip(perturbed_x, 0.0, 1.0)
-    x_est, new_state = f.apply(
+    perturbed_x = x + z * std
+
+    # perturbed_x = jnp.clip(perturbed_x, 0.0, 1.0)
+    # x_est, new_state = f.apply(
+    #     params, state, perturbed_x, random_t, sigma, is_training=True
+    # )
+    score, new_state = f.apply(
         params, state, perturbed_x, random_t, sigma, is_training=True
     )
-
-    loss = jnp.mean(jnp.sum((x - x_est) ** 2, axis=(1, 2, 3)))
+    loss = jnp.mean(jnp.sum((score * std + z) ** 2, axis=(1, 2, 3)))
+    # loss = jnp.mean(jnp.sum((x - x_est) ** 2, axis=(1, 2, 3)))
     return loss, new_state
 
 
@@ -49,7 +53,7 @@ def full_loss(params, rng, state, x, sigma):
 def step(params, state, opt_state, xs, rng_key, sigma):
     """Compute the gradient for a batch and update the parameters"""
     rng_key_1, rng_key_2, rng_key_3 = rnd.split(rng_key, 3)
-    xs = xs[rnd.choice(rng_key_1, len(xs), shape=(conf.batch_size,))]
+    # xs = xs[rnd.choice(rng_key_1, len(xs), shape=(conf.batch_size,))]
     (loss_value, new_state), grads = value_and_grad(full_loss, has_aux=True)(
         params, rng_key_2, state, xs, sigma
     )
@@ -60,22 +64,25 @@ def step(params, state, opt_state, xs, rng_key, sigma):
 
 opt = optax.adam(conf.lr)
 opt_state = opt.init(params)
+data_shape = (-1, 28, 28, 1)
 
 
-def training_loop(params, state, num_epochs, opt_state, xs, rng_key):
+def training_loop(dataloader, params, state, num_epochs, opt_state, rng_key):
     train_loss = []
     with trange(num_epochs) as t:
         for i in t:
-            params, state, opt_state, loss_value, rng_key = step(
-                params, state, opt_state, xs, rng_key, conf.sigma
-            )
-            t.set_description("Training Loss: {:3f}".format(loss_value))
-    fullloss = 0
-    return fullloss, train_loss, params, state
+            for x, y in dataloader:
+                x = x.permute(0, 2, 3, 1).numpy().reshape(data_shape)
+                rng_key, rng = rnd.split(rng_key, 2)
+                params, state, opt_state, loss_value, rng_key = step(
+                    params, state, opt_state, x, rng_key, conf.sigma
+                )
+                t.set_description("Training Loss: {:3f}".format(loss_value))
+    return train_loss, params, state
 
 
-def train_wrapper(params, state, num_epochs, x):
-    fullloss, train_loss, params, state = training_loop(
-        params, state, num_epochs, opt_state, x, rnd.PRNGKey(0)
+def train_wrapper(dataloader, params, state, num_epochs):
+    train_loss, params, state = training_loop(
+        dataloader, params, state, num_epochs, opt_state, rnd.PRNGKey(0)
     )
-    return fullloss, train_loss, params, state
+    return train_loss, params, state

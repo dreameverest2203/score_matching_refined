@@ -30,7 +30,6 @@ class DAE(hk.Module):
     def __call__(self, x, t, sigma, is_training=True):
         # The swish activation function
         act = jax.nn.swish
-
         w = hk.get_parameter(
             "w", (self.embed_dim // 2,), init=hk.initializers.RandomNormal(self.scale)
         )
@@ -73,7 +72,7 @@ class DAE(hk.Module):
 
         # Decoding path
         h = hk.Conv2DTranspose(
-            self.channels[2], (3, 3), (3, 3), padding=((2, 2), (2, 2)), with_bias=False
+            self.channels[2], (3, 3), (2, 2), padding=((2, 2), (2, 2)), with_bias=False
         )(h4)
         ## Skip connection from the encoding path
         h += hk.Linear(self.channels[2])(std_embedding)
@@ -93,8 +92,11 @@ class DAE(hk.Module):
         h += hk.Linear(self.channels[0])(std_embedding)
         h = hk.GroupNorm(32)(h)
         h = act(h)
-        h = hk.Conv2DTranspose(3, (3, 3), (1, 1), padding=((2, 2), (2, 2)))(
+        h = hk.Conv2D(1, (3, 3), (1, 1), padding=((2, 2), (2, 2)))(
             jnp.concatenate([h, h1], axis=-1)
         )
-
+        # h = hk.Conv2DTranspose(conf.num_samples, (3, 3), (1, 1), padding=((2, 2), (2, 2)))(
+        # jnp.concatenate([h, h1], axis=-1)
+        # )
+        h = h / marginal_prob_std(t, sigma)[:, None, None, None]
         return h

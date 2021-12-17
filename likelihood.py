@@ -14,8 +14,6 @@ import tqdm
 
 conf = get_config()
 
-# @title Define the likelihood function (double click to expand or collapse)
-
 
 def prior_likelihood(z, sigma):
     """The likelihood of a Gaussian distribution with mean zero and
