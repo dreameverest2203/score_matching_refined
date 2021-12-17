@@ -30,11 +30,13 @@ def score_fn(f, params, state, x, t):
     out = f.apply(params, state, perturbed_x, t, conf.sigma, True)
     # score = (out - x) / marginal_prob_std(t, conf.sigma) ** 2
     den = marginal_prob_std(t, conf.sigma) ** 2
-    score = (jnp.concatenate([out[0]] * conf.num_samples, axis=-1) - perturbed_x) / den[
-        :, None, None, None
-    ]
-    score = jnp.mean(score, axis=-1)  # this line won't work for RGB images
-    return score[:, :, :, None]
+    # score = (jnp.concatenate([out[0]] * conf.num_samples, axis=-1) - perturbed_x) / den[
+    #     :, None, None, None
+    # ]
+    # score = jnp.mean(score, axis=-1)  # this line won't work for RGB images
+    score = out[0]
+    # return score[:, :, :, None]
+    return score
 
 
 def ode_likelihood(
@@ -119,9 +121,13 @@ def ode_likelihood(
 # with open(f"model_weights/dae_model_{conf.num_samples}samples.pickle", "rb") as handle:
 #     params, state = pickle.load(handle)
 
-# sample_batch_size = 128
+# sample_batch_size = 64
 # dataset = MNIST(".", train=False, transform=transforms.ToTensor(), download=True)
-# data_loader = DataLoader(dataset, batch_size=sample_batch_size, shuffle=True,)
+# data_loader = DataLoader(
+#     dataset,
+#     batch_size=sample_batch_size,
+#     shuffle=True,
+# )
 # all_bpds = 0.0
 # all_items = 0
 # rng = jax.random.PRNGKey(100)
