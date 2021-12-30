@@ -1,10 +1,7 @@
 import jax
 import jax.numpy as jnp
 import haiku as hk
-from config import get_config
 import pdb
-
-conf = get_config()
 
 
 def marginal_prob_std(t, sigma):
@@ -21,11 +18,11 @@ def marginal_prob_std(t, sigma):
 
 
 class DAE(hk.Module):
-    def __init__(self):
+    def __init__(self, cfg):
         super().__init__(name=None)
-        self.channels = conf.channels
-        self.embed_dim = conf.embed_dim
-        self.scale = conf.scale
+        self.channels = cfg.channels
+        self.embed_dim = cfg.embed_dim
+        self.scale = cfg.scale
 
     def __call__(self, x, t, sigma, is_training=True):
         # The swish activation function
@@ -95,7 +92,7 @@ class DAE(hk.Module):
         h = hk.Conv2D(1, (3, 3), (1, 1), padding=((2, 2), (2, 2)))(
             jnp.concatenate([h, h1], axis=-1)
         )
-        # h = hk.Conv2DTranspose(conf.num_samples, (3, 3), (1, 1), padding=((2, 2), (2, 2)))(
+        # h = hk.Conv2DTranspose(cfg.ynum_samples, (3, 3), (1, 1), padding=((2, 2), (2, 2)))(
         # jnp.concatenate([h, h1], axis=-1)
         # )
         h = h / marginal_prob_std(t, sigma)[:, None, None, None]

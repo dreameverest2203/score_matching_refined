@@ -51,5 +51,5 @@ def get_config():
         langevin_iterations=100_000,
         langevin_burnin=80_000,
         langevin_stepsize=1e-4,
-        use_wandb=True,
+        use_wandb=False,
     )

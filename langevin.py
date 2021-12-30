@@ -3,26 +3,22 @@ import jax.numpy as jnp
 from functools import partial
 from jax import random, vmap
 from NCSN import marginal_prob_std
-from config import get_config
 import pdb
 
 
-conf = get_config()
-
-
-def itemwise_f(f, params, state, x, t):
+def itemwise_f(f, params, state, x, t, sigma):
     """Calls f with a single x, t, handling reshaping
     which is necesary for the batchnorm"""
     assert len(x.shape) == 3
     assert len(t.shape) == 1 or len(t.shape) == 0
     expanded_x = jnp.expand_dims(x, axis=0)
     expanded_t = jnp.expand_dims(t, axis=0)
-    return f.apply(params, state, expanded_x, expanded_t, conf.sigma, is_training=False)
+    return f.apply(params, state, expanded_x, expanded_t, sigma, is_training=False)
 
 
 @partial(jax.jit, static_argnames=("f", "n_iterations", "n_burn_in"))
 def annealed_langevin(
-    f, params, state, key, x_0, t_array, epsilon, n_iterations, n_burn_in
+    f, params, state, key, x_0, t_array, epsilon, n_iterations, n_burn_in, global_sigma
 ):
     def langevin(carry, t_array):
         x_0, state, key = carry
@@ -32,7 +28,7 @@ def annealed_langevin(
         def inner_fn(carry, key):
             x, state = carry
             key, _ = random.split(key)
-            out, state = itemwise_f(f, params, state, x, t)
+            out, state = itemwise_f(f, params, state, x, t, global_sigma)
             # out = jnp.concatenate(conf.num_samples * [out.squeeze(axis=0)], axis=-1)
             # score = (out - x) / marginal_prob_std(t, conf.sigma) ** 2
             # pdb.set_trace()

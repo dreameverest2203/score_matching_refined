@@ -1,4 +1,3 @@
-from train import f
 import pickle
 from torchvision.datasets import CIFAR10
 import torchvision.transforms as transforms
