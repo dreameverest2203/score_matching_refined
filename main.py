@@ -16,6 +16,7 @@ import hydra
 from omegaconf import DictConfig, OmegaConf
 from train import train_wrapper
 from models import get_model
+from likelihood import likelihood_wrapper
 
 
 @hydra.main(config_path=".", config_name="debug_config")
@@ -88,42 +89,47 @@ def main(cfg: DictConfig) -> None:
     # )
 
     _, _, f = get_model(cfg)
+    if cfg.plot_points:
+        for i in range(10):
+            init_x = rnd.normal(
+                rnd.PRNGKey(i),
+                (1, 28, 28, cfg.num_samples),
+            )
 
-    for i in range(10):
-        init_x = rnd.normal(rnd.PRNGKey(i), (1, 28, 28, cfg.num_samples),)
+            out = ode_sampler(
+                f,
+                params,
+                state,
+                init_x,
+                cfg.sigma,
+                1e-3,
+                cfg.chain_length,
+                cfg.error_tolerance,
+                cfg.num_samples,
+            )
 
-        out = ode_sampler(
-            f,
-            params,
-            state,
-            init_x,
-            cfg.sigma,
-            1e-3,
-            cfg.chain_length,
-            cfg.error_tolerance,
-            cfg.num_samples,
-        )
-
-        # out = jnp.clip(out, 0.0, 1.0)
-        grid_img = np.array(out)
-        grid_img = torch.from_numpy(grid_img)
-        indices = np.arange(0, 50, 10)
-        # MNIST
-        # grid_img = grid_img[:, :, :, denoised_sample - 1]
-        # grid_img = grid_img[:, indices, :, :, denoised_sample - 1]  # comment out for flow ODE
-        grid_img = torch.reshape(grid_img[:, :, None, :], (-1, 1, 28, 28))
-        save_image(
-            grid_img, fp=f"images/MNIST_{cfg.num_samples}_{i}.png", nrow=len(indices),
-        )
+            out = jnp.clip(out, 0.0, 1.0)
+            grid_img = np.array(out)
+            grid_img = torch.from_numpy(grid_img)
+            indices = np.arange(0, 50, 10)
+            # MNIST
+            # grid_img = grid_img[:, :, :, denoised_sample - 1]
+            # grid_img = grid_img[:, indices, :, :, denoised_sample - 1]  # comment out for flow ODE
+            grid_img = torch.reshape(grid_img[:, :, None, :], (-1, 1, 28, 28))
+            save_image(
+                grid_img,
+                fp=f"images/MNIST_{cfg.num_samples}_{i}.png",
+                nrow=len(indices),
+            )
+    if cfg.calculate_likelihood:
+        bpd = likelihood_wrapper(f, cfg, params, state)
+        print(f"Final bpd: {bpd}")
 
     # # CIFAR-10
     # grid_img = grid_img[:, indices, :, :, 3 * (denoised_sample - 1) : 3 * denoised_sample]
     # grid_img = torch.permute(grid_img, (0, 1, 4, 2, 3))
     # grid_img = torch.reshape(grid_img, (-1, 3, 32, 32))
     # save_image(grid_img, fp="CIFAR10.png", nrow=len(indices))
-
-    # print("Cfgig is", OmegaCfg.to_yaml(cfg))
-    pass
 
 
 if __name__ == "__main__":
