@@ -92,7 +92,10 @@ def ode_likelihood(
         return jnp.concatenate([sample_grad, logp_grad], axis=0)
 
     # Run the black-box ODE solver.
-    jax_odeint_fn = lambda y, t: ode_func(t, y)
+    # jax_odeint_fn = lambda y, t: ode_func(t, y)
+    @jit
+    def jax_odeint_fn(y, t):
+        return ode_func(t, y)
 
     init_x = jnp.concatenate(
         [x.reshape((-1,)), jnp.zeros((shape[0] * shape[1],))], axis=0
@@ -102,14 +105,14 @@ def ode_likelihood(
         ode_func, (eps, 1.0), np.asarray(init_x), rtol=1e-5, atol=1e-5, method="RK45"
     )
 
-    # res = odeint(
-    #     jax_odeint_fn,
-    #     jnp.array(init_x),
-    #     jnp.array([1.0, eps]),
-    #     atol=1e-5,
-    # )
-    zp = jnp.asarray(res.y[:, -1])
-    # zp = res[0] # uncomment for jax ode solver
+    res_jax = odeint(
+        jax_odeint_fn,
+        jnp.array(init_x),
+        jnp.array([eps, 1.0]),
+        atol=1e-5,
+    )
+    # zp = jnp.asarray(res.y[:, -1])
+    zp = res_jax[-1]
     z = zp[: -shape[0] * shape[1]].reshape(shape)
     delta_logp = zp[-shape[0] * shape[1] :].reshape((shape[0], shape[1]))
     sigma_max = marginal_prob_std(1.0, cfg.sigma)
