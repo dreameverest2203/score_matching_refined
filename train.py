@@ -16,6 +16,10 @@ from jax._src.prng import PRNGKeyArray
 from typing import cast
 import wandb
 import numpy as np
+from torchvision.transforms import RandAugment
+import pdb
+import torch
+from ode_sampler import ode_sampler
 
 
 def train_wrapper(train_dataloader, val_dataloader, cfg):
@@ -26,7 +30,7 @@ def train_wrapper(train_dataloader, val_dataloader, cfg):
     data_shape = (-1, 28, 28, 1)
 
     @jit
-    def full_loss(params, rng, state, x, sigma):
+    def full_loss(params, rng, state, x, aug_x, sigma):
         rng_1, rng_2 = rnd.split(rng, 2)
         random_t = rnd.uniform(rng_1, (x.shape[0],), minval=1e-5, maxval=1)
         std = marginal_prob_std(random_t, sigma)
@@ -34,7 +38,7 @@ def train_wrapper(train_dataloader, val_dataloader, cfg):
         x_stacked = jnp.concatenate(cfg.num_samples * [x], axis=-1)
         z = rnd.normal(rng_2, x_stacked.shape)
         perturbed_x = x + z * std
-
+        pdb.set_trace()
         # perturbed_x = jnp.clip(perturbed_x, 0.0, 1.0)
         # x_est, new_state = f.apply(
         #     params, state, perturbed_x, random_t, sigma, is_training=True
@@ -90,16 +94,23 @@ def train_wrapper(train_dataloader, val_dataloader, cfg):
             return val_loss
 
     @jit
-    def step(params, state, opt_state, xs, rng_key, sigma):
+    def step(params, state, opt_state, xs, aug_xs, rng_key, sigma):
         """Compute the gradient for a batch and update the parameters"""
         rng_key_1, rng_key_2 = rnd.split(rng_key, 2)
         # xs = xs[rnd.choice(rng_key_1, len(xs), shape=(cfg.batch_size,))]
         (loss_value, new_state), grads = value_and_grad(full_loss, has_aux=True)(
-            params, rng_key_1, state, xs, sigma
+            params, rng_key_1, state, xs, aug_xs, sigma
         )
         updates, opt_state = opt.update(grads, opt_state, params)
         params = optax.apply_updates(params, updates)
         return params, new_state, opt_state, loss_value, rng_key_2
+
+    def augmentation(x):
+        x = torch.tensor(255 * x, dtype=torch.uint8)
+        x = torch.permute(x, (0, 3, 1, 2))
+        aux = RandAugment(3, 5, 31).forward(x)
+        aug_x = torch.tensor(aux / 255.0, dtype=torch.float16)
+        return aug_x
 
     def training_loop(
         train_dataloader,
@@ -116,8 +127,9 @@ def train_wrapper(train_dataloader, val_dataloader, cfg):
             for i in t:
                 for j, (x, _) in enumerate(train_dataloader):
                     x = x.permute(0, 2, 3, 1).numpy().reshape(data_shape)
+                    aug_x = augmentation(x).numpy().reshape(data_shape)
                     params, state, opt_state, loss_value, rng_key = step(
-                        params, state, opt_state, x, rng_key, cfg.sigma
+                        params, state, opt_state, x, aug_x, rng_key, cfg.sigma
                     )
                     if j % 50 == 0:
                         if cfg.use_wandb:

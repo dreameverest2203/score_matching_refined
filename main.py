@@ -16,6 +16,7 @@ import hydra
 from omegaconf import DictConfig, OmegaConf
 from train import train_wrapper
 from models import get_model
+import pdb
 from likelihood import likelihood_wrapper
 
 
@@ -96,30 +97,21 @@ def main(cfg: DictConfig) -> None:
                 (1, 28, 28, cfg.num_samples),
             )
 
-            out = ode_sampler(
-                f,
-                params,
-                state,
-                init_x,
-                cfg.sigma,
-                1e-3,
-                cfg.chain_length,
-                cfg.error_tolerance,
-                cfg.num_samples,
-            )
-
+            out = ode_sampler(f, params, state, init_x, cfg.sigma, 1e-3, chain_length=1)
             out = jnp.clip(out, 0.0, 1.0)
             grid_img = np.array(out)
             grid_img = torch.from_numpy(grid_img)
-            indices = np.arange(0, 50, 10)
+            # indices = np.arange(0, 50, 10)
             # MNIST
             # grid_img = grid_img[:, :, :, denoised_sample - 1]
             # grid_img = grid_img[:, indices, :, :, denoised_sample - 1]  # comment out for flow ODE
-            grid_img = torch.reshape(grid_img[:, :, None, :], (-1, 1, 28, 28))
+            # grid_img = torch.reshape(grid_img[:, :, None, :], (-1, 1, 28, 28))
+            pdb.set_trace()
+            grid_img = torch.permute(grid_img,(0,3,1,2))
             save_image(
                 grid_img,
-                fp=f"images/MNIST_{cfg.num_samples}_{i}.png",
-                nrow=len(indices),
+                fp=f"../../../images/MNIST_{cfg.num_samples}_{i}.png",
+                nrow=grid_img.shape[0],
             )
     if cfg.calculate_likelihood:
         bpd = likelihood_wrapper(f, cfg, params, state)

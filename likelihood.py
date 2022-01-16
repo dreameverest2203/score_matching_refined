@@ -108,7 +108,7 @@ def ode_likelihood(
     res_jax = odeint(
         jax_odeint_fn,
         jnp.array(init_x),
-        jnp.array([eps, 1.0]),
+        jnp.linspace(eps, 1.0),
         atol=1e-5,
     )
     # zp = jnp.asarray(res.y[:, -1])
