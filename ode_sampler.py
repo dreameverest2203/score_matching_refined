@@ -31,7 +31,7 @@ def ode_sampler(
         # score = (
         #     jnp.concatenate([out[0]] * conf.num_samples, axis=-1) - sample
         # ) / marginal_prob_std(time_steps, conf.sigma) ** 2
-        return np.asarray(score).reshape((-1,)).astype(np.float64)
+        return np.asarray(score).reshape((-1,)).astype(np.float32)
 
     def jax_score_eval_wrapper(sample, time_steps):
         """A wrapper of the score-based model for use by the ODE solver."""
@@ -42,7 +42,7 @@ def ode_sampler(
         # score = (
         #     jnp.concatenate([out[0]] * conf.num_samples, axis=-1) - sample
         # ) / marginal_prob_std(time_steps, conf.sigma) ** 2
-        return jnp.asarray(score).reshape((-1,)).astype(jnp.float64)
+        return jnp.asarray(score).reshape((-1,)).astype(jnp.float32)
 
     def ode_func(t, x):
         """The ODE function for use by the ODE solver."""

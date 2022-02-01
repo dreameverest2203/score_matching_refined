@@ -1,9 +1,12 @@
 import jax
 import jax.numpy as jnp
 from functools import partial
-from jax import random, vmap
+from jax import random, vmap, jit
 from NCSN import marginal_prob_std
 import pdb
+
+global_sigma = 25
+epsilon, n_iterations, n_burn_in = 1e-3, 50, 0
 
 
 def itemwise_f(f, params, state, x, t, sigma):
@@ -16,40 +19,38 @@ def itemwise_f(f, params, state, x, t, sigma):
     return f.apply(params, state, expanded_x, expanded_t, sigma, is_training=False)
 
 
-@partial(jax.jit, static_argnames=("f", "n_iterations", "n_burn_in"))
-def annealed_langevin(
-    f, params, state, key, x_0, t_array, epsilon, n_iterations, n_burn_in, global_sigma
-):
-    def langevin(carry, t_array):
-        x_0, state, key = carry
-        t = t_array
-        key, _ = random.split(key)
-
-        def inner_fn(carry, key):
-            x, state = carry
+def langevin_wrapper(f, params, state, key, x_0, t_array):
+    # @partial(jax.jit, static_argnames=("n_iterations", "n_burn_in"))
+    @jit
+    def annealed_langevin(params, state, key, x_0, t_array):
+        def langevin(carry, t_array):
+            x_0, state, key = carry
+            t = t_array
             key, _ = random.split(key)
-            out, state = itemwise_f(f, params, state, x, t, global_sigma)
-            # out = jnp.concatenate(conf.num_samples * [out.squeeze(axis=0)], axis=-1)
-            # score = (out - x) / marginal_prob_std(t, conf.sigma) ** 2
-            # pdb.set_trace()
-            score = out.squeeze(axis=0)
-            x = (
-                x
-                + epsilon * score
-                + jnp.sqrt(2 * epsilon) * random.normal(key, shape=x.shape)
+
+            def inner_fn(carry, key):
+                x, state = carry
+                key, _ = random.split(key)
+                out, state = itemwise_f(f, params, state, x, t, global_sigma)
+                # out = jnp.concatenate(conf.num_samples * [out.squeeze(axis=0)], axis=-1)
+                # score = (out - x) / marginal_prob_std(t, conf.sigma) ** 2
+                score = out.squeeze(axis=0)
+                x = (
+                    x
+                    + epsilon * score
+                    + jnp.sqrt(2 * epsilon) * random.normal(key, shape=x.shape)
+                )
+                return (x, state), x
+
+            (x, state), xs = jax.lax.scan(
+                inner_fn, (x_0, state), random.split(key, n_iterations)
             )
-            # x = jnp.clip(x, 0.0, 1.0)
-            return (x, state), x
+            return (x, state, key), xs
 
-        (x, state), xs = jax.lax.scan(
-            inner_fn, (x_0, state), random.split(key, n_iterations)
-        )
-        return (x, state, key), xs
+        (x, state, key), xs = jax.lax.scan(langevin, (x_0, state, key), t_array)
+        return xs[-1, n_burn_in:, :]
 
-    (x, state, key), xs = jax.lax.scan(langevin, (x_0, state, key), t_array)
-    return xs[-1, n_burn_in:, :]
-
-
-chain_langevin = vmap(
-    annealed_langevin, (None, None, None, 0, 0, None, None, None, None)
-)
+    chain_langevin = vmap(annealed_langevin, (None, None, 0, 0, None))
+    ret = chain_langevin(params, state, key, x_0, t_array)
+    pdb.set_trace()
+    return ret

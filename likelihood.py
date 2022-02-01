@@ -68,7 +68,7 @@ def ode_likelihood(
         sample = jnp.squeeze(sample, axis=1)
         time_steps = jnp.asarray(time_steps, dtype=jnp.float32).reshape(time_shape)
         score = score_fn(cfg, f, params, state, sample, time_steps)
-        return jnp.asarray(score).reshape((-1,)).astype(np.float64)
+        return jnp.asarray(score).reshape((-1,)).astype(np.float32)
 
     def divergence_eval_wrapper(sample, time_steps):
         """A wrapper for evaluating the divergence of score for the black-box ODE solver."""
@@ -78,7 +78,7 @@ def ode_likelihood(
         time_steps = jnp.asarray(time_steps, dtype=jnp.float32).reshape(time_shape)
         # Compute likelihood.
         div = divergence_eval(sample, time_steps)
-        return jnp.asarray(div).reshape((-1,)).astype(np.float64)
+        return jnp.asarray(div).reshape((-1,)).astype(np.float32)
 
     @jit
     def ode_func(t, x):
