@@ -2,12 +2,15 @@ import jax.numpy as jnp
 from jax import random as rnd
 import haiku as hk
 from UNet import DAE
+from NCSN import NCSN
 
 
 def get_model(cfg):
     def forward_new(perturbed_x, t, sigma, is_training):
         score_model = DAE(cfg)
+        # score_model = NCSN(cfg)
         return score_model(perturbed_x, t, sigma, is_training)
+        # return score_model(perturbed_x, t, sigma)
 
     f = hk.without_apply_rng(hk.transform_with_state(forward_new))
 

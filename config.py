@@ -27,6 +27,7 @@ class Config(NamedTuple):
     langevin_burnin: int
     langevin_stepsize: float
     use_wandb: bool
+    load_model: bool
 
 
 def get_config():
@@ -52,4 +53,5 @@ def get_config():
         langevin_burnin=80_000,
         langevin_stepsize=1e-4,
         use_wandb=False,
+        load_model=False,
     )

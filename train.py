@@ -10,12 +10,20 @@ from UNet import DAE
 from config import get_config
 from tqdm import trange
 from likelihood import ode_likelihood
-from langevin import chain_langevin
+import matplotlib.pyplot as plt
+
+# from langevin import chain_langevin
 from jax import vmap
 from jax._src.prng import PRNGKeyArray
 from typing import cast
 import wandb
 import numpy as np
+from torchvision.transforms import RandAugment
+import pdb
+import torch
+from ode_sampler import ode_sampler
+
+sigma = 25.0
 
 
 def train_wrapper(train_dataloader, val_dataloader, cfg):
@@ -26,7 +34,7 @@ def train_wrapper(train_dataloader, val_dataloader, cfg):
     data_shape = (-1, 28, 28, 1)
 
     @jit
-    def full_loss(params, rng, state, x, sigma):
+    def full_loss(params, rng, state, x):
         rng_1, rng_2 = rnd.split(rng, 2)
         random_t = rnd.uniform(rng_1, (x.shape[0],), minval=1e-5, maxval=1)
         std = marginal_prob_std(random_t, sigma)
@@ -34,7 +42,6 @@ def train_wrapper(train_dataloader, val_dataloader, cfg):
         x_stacked = jnp.concatenate(cfg.num_samples * [x], axis=-1)
         z = rnd.normal(rng_2, x_stacked.shape)
         perturbed_x = x + z * std
-
         # perturbed_x = jnp.clip(perturbed_x, 0.0, 1.0)
         # x_est, new_state = f.apply(
         #     params, state, perturbed_x, random_t, sigma, is_training=True
@@ -43,6 +50,14 @@ def train_wrapper(train_dataloader, val_dataloader, cfg):
             params, state, perturbed_x, random_t, sigma, is_training=True
         )
         loss = jnp.mean(jnp.sum((score * std + z) ** 2, axis=(1, 2, 3)))
+        # 1) plot noisy inp, inp, denoised inp
+        denoised_img = score + perturbed_x
+
+        fig,ax = plt.subplots(16,1)
+        
+        
+
+        # pdb.set_trace()
         # loss = jnp.mean(jnp.sum((x - x_est) ** 2, axis=(1, 2, 3)))
         return loss, new_state
 
@@ -61,45 +76,55 @@ def train_wrapper(train_dataloader, val_dataloader, cfg):
         val_loss = 0
         for i, (xs, _) in enumerate(val_dataloader):
             xs = xs.permute(0, 2, 3, 1).numpy().reshape(data_shape)
-            val_loss += full_loss(params, rng, state, xs, sigma)[0]
+            val_loss += full_loss(params, rng, state, xs)[0]
         val_loss /= i + 1  # type: ignore
         xs = cast(jnp.ndarray, xs)  # type: ignore
         samples_shape = tuple([n_samples] + list(xs.shape[1:]))
 
-        if verbose:
-            val_likelihood = ode_likelihood(
-                f, rng_1, xs, params, state, len(xs), eps=1e-5
-            )
-            init_xs = rnd.normal(rng_2, shape=samples_shape)
-            langevin_samples = chain_langevin(
-                f,
-                params,
-                state,
-                rnd.split(rng_2, len(init_xs)),
-                xs,
-                jnp.array([1.0, 0.5, 0.2, 0.1, 0.01]),
-                cfg.langevin_stepsize,
-                10_000,
-                2_000,
-            )
-            ode_samples = vmap(ode_sampler, in_axes=(None, None, None, 0, None))(
-                f, params, state, rnd.normal(rng_3, samples_shape), 1e-3
-            )
-            return (val_loss, val_likelihood, langevin_samples, ode_samples)
-        else:
-            return val_loss
+        # if verbose:
+        #     val_likelihood = ode_likelihood(
+        #         f, rng_1, xs, params, state, len(xs), eps=1e-5
+        #     )
+        #     init_xs = rnd.normal(rng_2, shape=samples_shape)
+        #     langevin_samples = chain_langevin(
+        #         f,
+        #         params,
+        #         state,
+        #         rnd.split(rng_2, len(init_xs)),
+        #         xs,
+        #         jnp.array([1.0, 0.5, 0.2, 0.1, 0.01]),
+        #         cfg.langevin_stepsize,
+        #         10_000,
+        #         2_000,
+        #     )
+        #     ode_samples = vmap(ode_sampler, in_axes=(None, None, None, 0, None))(
+        #         f, params, state, rnd.normal(rng_3, samples_shape), 1e-3
+        #     )
+        #     return (val_loss, val_likelihood, langevin_samples, ode_samples)
+        # else:
+        #     return val_loss
 
     @jit
-    def step(params, state, opt_state, xs, rng_key, sigma):
+    def step(params, state, opt_state, xs, aug_xs, rng_key):
         """Compute the gradient for a batch and update the parameters"""
         rng_key_1, rng_key_2 = rnd.split(rng_key, 2)
+        rng_key_1 = rnd.PRNGKey(0)
         # xs = xs[rnd.choice(rng_key_1, len(xs), shape=(cfg.batch_size,))]
+        aux_loss = full_loss(params, rng_key, state, xs)
+        # pdb.set_trace
         (loss_value, new_state), grads = value_and_grad(full_loss, has_aux=True)(
-            params, rng_key_1, state, xs, sigma
+            params, rng_key_1, state, xs
         )
         updates, opt_state = opt.update(grads, opt_state, params)
         params = optax.apply_updates(params, updates)
         return params, new_state, opt_state, loss_value, rng_key_2
+
+    def augmentation(x):
+        x = torch.tensor(255 * x, dtype=torch.uint8)
+        x = torch.permute(x, (0, 3, 1, 2))
+        aux = RandAugment(3, 5, 31).forward(x)
+        aug_x = torch.tensor(aux / 255.0, dtype=torch.float16)
+        return aug_x
 
     def training_loop(
         train_dataloader,
@@ -112,12 +137,18 @@ def train_wrapper(train_dataloader, val_dataloader, cfg):
         sampling_log_interval: int = 500,
     ):
         train_loss = []
+        # x0, _ = next(train_dataloader)
+        for x0, _ in train_dataloader:
+            break
         with trange(num_epochs) as t:
             for i in t:
                 for j, (x, _) in enumerate(train_dataloader):
+                    x = x0
                     x = x.permute(0, 2, 3, 1).numpy().reshape(data_shape)
+                    # pdb.set_trace()
+                    aug_x = augmentation(x).numpy().reshape(data_shape)
                     params, state, opt_state, loss_value, rng_key = step(
-                        params, state, opt_state, x, rng_key, cfg.sigma
+                        params, state, opt_state, x, aug_x, rng_key
                     )
                     if j % 50 == 0:
                         if cfg.use_wandb:

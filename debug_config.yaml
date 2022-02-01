@@ -19,3 +19,5 @@ langevin_burnin: 80000
 langevin_stepsize: 1e-4
 use_wandb: False
 load_model: False
+calculate_likelihood: True
+plot_points: False
