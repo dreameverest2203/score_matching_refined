@@ -12,7 +12,6 @@ from tqdm import trange
 from likelihood import ode_likelihood
 import matplotlib.pyplot as plt
 
-# from langevin import chain_langevin
 from jax import vmap
 from jax._src.prng import PRNGKeyArray
 from typing import cast
@@ -77,8 +76,7 @@ def train_wrapper(train_dataloader, val_dataloader, cfg):
         )
         updates, opt_state = opt.update(grads, opt_state, params)
         params = optax.apply_updates(params, updates)
-        extra_stuff = x, denoised_diff, perturbed_x
-        return params, new_state, opt_state, loss_value, rng_key_2, extra_stuff
+        return params, new_state, opt_state, loss_value, rng_key_2
 
     def augmentation(x):
         x = torch.tensor(255 * x, dtype=torch.uint8)
@@ -103,7 +101,7 @@ def train_wrapper(train_dataloader, val_dataloader, cfg):
                 for j, (x, _) in enumerate(train_dataloader):
                     x = x.permute(0, 2, 3, 1).numpy().reshape(data_shape)
                     aug_x = augmentation(x).numpy().reshape(data_shape)
-                    params, state, opt_state, loss_value, rng_key, extras = step(
+                    params, state, opt_state, loss_value, rng_key = step(
                         params, state, opt_state, x, aug_x, rng_key
                     )
                     if j % 50 == 0:
@@ -128,36 +126,10 @@ def train_wrapper(train_dataloader, val_dataloader, cfg):
                         n_samples=2,
                         verbose=True,
                     )
-                    if cfg.use_wandb:
-                        wandb.log(
-                            data={
-                                "Training Loss": float(loss_value),
-                                "Val Loss": float(val_loss),
-                                "Langevin Samples": None,
-                                "ODE Samples": None,
-                            },
-                        )
-                x, denoised_diff, perturbed_x = extras  # type: ignore
-                fig, axs = plt.subplots(3, 16)
-                for im, ax in zip(x[:16], axs[0]):
-                    ax.imshow(im)
-                    ax.axis("off")
-                for im, ax in zip(perturbed_x[:16], axs[1]):
-                    ax.imshow(im)
-                    ax.axis("off")
-                for im, ax in zip(perturbed_x[:16] + denoised_diff[:16], axs[2]):
-                    ax.imshow(im)
-                    ax.axis("off")
-                plt.savefig(f"model_outputs_epoch_{i}.png")  # type: ignore
-                if cfg.use_wandb:
-                    wandb.log(
-                        {"training_figure": wandb.Image(f"model_outputs_epoch_{i}.png")}
-                    )
                 if cfg.use_wandb:
                     wandb.log(
                         data={
-                            "Training Loss": float(loss_value),  # type: ignore
-                            # "Val Loss": float(val_loss),  # type: ignore
+                            "Training Loss": float(loss_value), 
                         },
                     )
 
