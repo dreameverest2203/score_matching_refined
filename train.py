@@ -50,15 +50,6 @@ def train_wrapper(train_dataloader, val_dataloader, cfg):
             params, state, perturbed_x, random_t, sigma, is_training=True
         )
         loss = jnp.mean(jnp.sum((score * std + z) ** 2, axis=(1, 2, 3)))
-        # 1) plot noisy inp, inp, denoised inp
-        denoised_img = score + perturbed_x
-
-        fig,ax = plt.subplots(16,1)
-        
-        
-
-        # pdb.set_trace()
-        # loss = jnp.mean(jnp.sum((x - x_est) ** 2, axis=(1, 2, 3)))
         return loss, new_state
 
     def eval_val_callback(
@@ -108,10 +99,8 @@ def train_wrapper(train_dataloader, val_dataloader, cfg):
     def step(params, state, opt_state, xs, aug_xs, rng_key):
         """Compute the gradient for a batch and update the parameters"""
         rng_key_1, rng_key_2 = rnd.split(rng_key, 2)
-        rng_key_1 = rnd.PRNGKey(0)
         # xs = xs[rnd.choice(rng_key_1, len(xs), shape=(cfg.batch_size,))]
-        aux_loss = full_loss(params, rng_key, state, xs)
-        # pdb.set_trace
+        # aux_loss = full_loss(params, rng_key, state, xs)
         (loss_value, new_state), grads = value_and_grad(full_loss, has_aux=True)(
             params, rng_key_1, state, xs
         )
@@ -137,15 +126,12 @@ def train_wrapper(train_dataloader, val_dataloader, cfg):
         sampling_log_interval: int = 500,
     ):
         train_loss = []
+
         # x0, _ = next(train_dataloader)
-        for x0, _ in train_dataloader:
-            break
         with trange(num_epochs) as t:
             for i in t:
                 for j, (x, _) in enumerate(train_dataloader):
-                    x = x0
                     x = x.permute(0, 2, 3, 1).numpy().reshape(data_shape)
-                    # pdb.set_trace()
                     aug_x = augmentation(x).numpy().reshape(data_shape)
                     params, state, opt_state, loss_value, rng_key = step(
                         params, state, opt_state, x, aug_x, rng_key
@@ -175,7 +161,7 @@ def train_wrapper(train_dataloader, val_dataloader, cfg):
                     if cfg.use_wandb:
                         wandb.log(
                             data={
-                                "Training Loss": float(loss_value),  # type: ignore
+                                "Training Loss": float(loss_value),
                                 "Val Loss": float(val_loss),
                                 "Langevin Samples": None,
                                 "ODE Samples": None,
@@ -195,14 +181,12 @@ def train_wrapper(train_dataloader, val_dataloader, cfg):
                         wandb.log(
                             data={
                                 "Training Loss": float(loss_value),  # type: ignore
-                                "Val Loss": float(val_loss),  # type: ignore
+                                # "Val Loss": float(val_loss),  # type: ignore
                             },
                         )
 
         return train_loss, params, state
 
-    if cfg.use_wandb:
-        wandb.init(project="ncsnpp", config=cfg)
     train_loss, params, state = training_loop(
         train_dataloader,
         val_dataloader,

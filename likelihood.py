@@ -14,6 +14,7 @@ import torchvision.transforms as transforms
 import pickle
 import tqdm
 import hydra
+import wandb
 from omegaconf import DictConfig
 
 conf = get_config()
@@ -93,6 +94,7 @@ def ode_likelihood(
 
     # Run the black-box ODE solver.
     # jax_odeint_fn = lambda y, t: ode_func(t, y)
+
     @jit
     def jax_odeint_fn(y, t):
         return ode_func(t, y)
@@ -101,9 +103,9 @@ def ode_likelihood(
         [x.reshape((-1,)), jnp.zeros((shape[0] * shape[1],))], axis=0
     )
     # Black-box ODE solver
-    res = integrate.solve_ivp(
-        ode_func, (eps, 1.0), np.asarray(init_x), rtol=1e-5, atol=1e-5, method="RK45"
-    )
+    # res = integrate.solve_ivp(
+    #     ode_func, (eps, 1.0), np.asarray(init_x), rtol=1e-5, atol=1e-5, method="RK45"
+    # )
 
     res_jax = odeint(
         jax_odeint_fn,
@@ -146,7 +148,18 @@ def likelihood_wrapper(f, cfg, params, state):
         )
         all_bpds += bpd.sum()
         all_items += bpd.shape[0] * bpd.shape[1]
+        wandb.log(
+            data={
+                "Training Loss": float(),
+            },
+        )
         tqdm_data.set_description(
             "Average bits/dim: {:5f}".format(all_bpds / all_items)
         )
+        wandb.log(
+            data={
+                "Average bits/dim: ": float(all_bpds / all_items),
+            },
+        )
+
     return all_bpds / all_items

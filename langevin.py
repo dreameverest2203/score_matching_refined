@@ -6,7 +6,7 @@ from NCSN import marginal_prob_std
 import pdb
 
 global_sigma = 25
-epsilon, n_iterations, n_burn_in = 1e-3, 50, 0
+epsilon, n_iterations, n_burn_in = 1e-4, 5000, 4000
 
 
 def itemwise_f(f, params, state, x, t, sigma):
@@ -20,7 +20,6 @@ def itemwise_f(f, params, state, x, t, sigma):
 
 
 def langevin_wrapper(f, params, state, key, x_0, t_array):
-    # @partial(jax.jit, static_argnames=("n_iterations", "n_burn_in"))
     @jit
     def annealed_langevin(params, state, key, x_0, t_array):
         def langevin(carry, t_array):
@@ -32,8 +31,6 @@ def langevin_wrapper(f, params, state, key, x_0, t_array):
                 x, state = carry
                 key, _ = random.split(key)
                 out, state = itemwise_f(f, params, state, x, t, global_sigma)
-                # out = jnp.concatenate(conf.num_samples * [out.squeeze(axis=0)], axis=-1)
-                # score = (out - x) / marginal_prob_std(t, conf.sigma) ** 2
                 score = out.squeeze(axis=0)
                 x = (
                     x
@@ -52,5 +49,4 @@ def langevin_wrapper(f, params, state, key, x_0, t_array):
 
     chain_langevin = vmap(annealed_langevin, (None, None, 0, 0, None))
     ret = chain_langevin(params, state, key, x_0, t_array)
-    pdb.set_trace()
     return ret

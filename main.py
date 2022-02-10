@@ -14,10 +14,12 @@ from torchvision.utils import make_grid
 from torchvision.utils import save_image
 import hydra
 from omegaconf import DictConfig, OmegaConf
+from NCSN import marginal_prob_std
 from train import train_wrapper
 from models import get_model
 import pdb
 from likelihood import likelihood_wrapper
+import wandb
 
 
 @hydra.main(config_path=".", config_name="debug_config")
@@ -26,8 +28,11 @@ def main(cfg: DictConfig) -> None:
     train_dataset = MNIST(
         "../../..", train=True, transform=transforms.ToTensor(), download=False
     )
-    # idx = train_dataset.targets==2
-    # train_dataset = train_dataset.data[idx]
+    idx = train_dataset.targets > 1
+    train_dataset.data, train_dataset.targets = (
+        train_dataset.data[idx],
+        train_dataset.targets[idx],
+    )
     train_data_loader = DataLoader(
         train_dataset, batch_size=cfg.batch_size, shuffle=True, num_workers=2
     )
@@ -39,6 +44,9 @@ def main(cfg: DictConfig) -> None:
     test_data_loader = DataLoader(
         test_dataset, batch_size=cfg.batch_size, shuffle=True, num_workers=2
     )
+
+    if cfg.use_wandb:
+        wandb.init(project="ncsnpp", config=cfg)
 
     if cfg.load_model:
         with open(
@@ -60,13 +68,14 @@ def main(cfg: DictConfig) -> None:
 
     # Langevin Chain
     if cfg.langevin:
-        init_x = rnd.uniform(
-            rnd.PRNGKey(4),
-            (cfg.chain_length, 28, 28, cfg.num_samples),
-            minval=0.0,
-            maxval=1.0,
+        init_x = (
+            rnd.normal(
+                rnd.PRNGKey(0),
+                (cfg.chain_length, 28, 28, cfg.num_samples),
+            )
+            * marginal_prob_std(1.0, cfg.sigma)
         )
-        key_array = rnd.split(rnd.PRNGKey(15), init_x.shape[0])
+        key_array = rnd.split(rnd.PRNGKey(0), init_x.shape[0])
         out = langevin_wrapper(
             f,
             params,
@@ -78,13 +87,20 @@ def main(cfg: DictConfig) -> None:
         out = jnp.clip(out, 0.0, 1.0)
         grid_img = np.array(out)
         grid_img = torch.from_numpy(grid_img)
-        pdb.set_trace()
+        indices = np.arange(0, grid_img.shape[1], grid_img.shape[1] / 5)
+        grid_img = grid_img[:, indices, :, :, :]
+        grid_img = torch.reshape(grid_img, (-1, 28, 28, 1))
+        grid_img = torch.permute(grid_img, (0, 3, 1, 2))
+        save_image(grid_img, fp=f"../../../images/MNIST_langevin.png", nrow=5)
+        if cfg.use_wandb:
+            wandb.log(
+                {"training_figure": wandb.Image(f"../../../images/MNIST_langevin.png")}
+            )
 
     if cfg.plot_points:
-        for i in range(10):
-            init_x = rnd.uniform(
-                rnd.PRNGKey(i), (1, 28, 28, cfg.num_samples), minval=0.0, maxval=1.0
-            )
+        rng_arr = rnd.split(rnd.PRNGKey(0), num=20)
+        for i in range(20):
+            init_x = rnd.normal(rng_arr[i], (1, 28, 28, cfg.num_samples)) * marginal_prob_std(1.0, cfg.sigma)
             out = ode_sampler(f, params, state, init_x, cfg.sigma, 1e-3, chain_length=1)
             out = jnp.clip(out, 0.0, 1.0)
             grid_img = np.array(out)
@@ -95,6 +111,14 @@ def main(cfg: DictConfig) -> None:
                 fp=f"../../../images/MNIST_{cfg.num_samples}_{i}.png",
                 nrow=grid_img.shape[0],
             )
+            if cfg.use_wandb:
+                wandb.log(
+                    {
+                        "training_figure": wandb.Image(
+                            f"../../../images/MNIST_{cfg.num_samples}_{i}.png"
+                        )
+                    }
+                )
     if cfg.calculate_likelihood:
         bpd = likelihood_wrapper(f, cfg, params, state)
         print(f"Final bpd: {bpd}")
