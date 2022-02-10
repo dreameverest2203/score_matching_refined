@@ -9,7 +9,6 @@ from torchvision.datasets import MNIST
 from torchvision.datasets import CIFAR10
 import torchvision.transforms as transforms
 import pickle
-import torch
 from torchvision.utils import make_grid
 from torchvision.utils import save_image
 import hydra

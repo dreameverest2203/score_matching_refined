@@ -42,10 +42,6 @@ def train_wrapper(train_dataloader, val_dataloader, cfg):
         x_stacked = jnp.concatenate(cfg.num_samples * [x], axis=-1)
         z = rnd.normal(rng_2, x_stacked.shape)
         perturbed_x = x + z * std
-        # perturbed_x = jnp.clip(perturbed_x, 0.0, 1.0)
-        # x_est, new_state = f.apply(
-        #     params, state, perturbed_x, random_t, sigma, is_training=True
-        # )
         score, new_state = f.apply(
             params, state, perturbed_x, random_t, sigma, is_training=True
         )
@@ -53,7 +49,6 @@ def train_wrapper(train_dataloader, val_dataloader, cfg):
         return loss, new_state
 
     def eval_val_callback(
-        params: hk.Params,
         state: hk.State,
         rng: PRNGKeyArray,
         val_dataloader,
@@ -72,41 +67,18 @@ def train_wrapper(train_dataloader, val_dataloader, cfg):
         xs = cast(jnp.ndarray, xs)  # type: ignore
         samples_shape = tuple([n_samples] + list(xs.shape[1:]))
 
-        # if verbose:
-        #     val_likelihood = ode_likelihood(
-        #         f, rng_1, xs, params, state, len(xs), eps=1e-5
-        #     )
-        #     init_xs = rnd.normal(rng_2, shape=samples_shape)
-        #     langevin_samples = chain_langevin(
-        #         f,
-        #         params,
-        #         state,
-        #         rnd.split(rng_2, len(init_xs)),
-        #         xs,
-        #         jnp.array([1.0, 0.5, 0.2, 0.1, 0.01]),
-        #         cfg.langevin_stepsize,
-        #         10_000,
-        #         2_000,
-        #     )
-        #     ode_samples = vmap(ode_sampler, in_axes=(None, None, None, 0, None))(
-        #         f, params, state, rnd.normal(rng_3, samples_shape), 1e-3
-        #     )
-        #     return (val_loss, val_likelihood, langevin_samples, ode_samples)
-        # else:
-        #     return val_loss
 
     @jit
     def step(params, state, opt_state, xs, aug_xs, rng_key):
         """Compute the gradient for a batch and update the parameters"""
         rng_key_1, rng_key_2 = rnd.split(rng_key, 2)
-        # xs = xs[rnd.choice(rng_key_1, len(xs), shape=(cfg.batch_size,))]
-        # aux_loss = full_loss(params, rng_key, state, xs)
         (loss_value, new_state), grads = value_and_grad(full_loss, has_aux=True)(
             params, rng_key_1, state, xs
         )
         updates, opt_state = opt.update(grads, opt_state, params)
         params = optax.apply_updates(params, updates)
-        return params, new_state, opt_state, loss_value, rng_key_2
+        extra_stuff = x, denoised_diff, perturbed_x
+        return params, new_state, opt_state, loss_value, rng_key_2, extra_stuff
 
     def augmentation(x):
         x = torch.tensor(255 * x, dtype=torch.uint8)
@@ -125,15 +97,13 @@ def train_wrapper(train_dataloader, val_dataloader, cfg):
         rng_key: PRNGKeyArray,
         sampling_log_interval: int = 500,
     ):
-        train_loss = []
 
-        # x0, _ = next(train_dataloader)
         with trange(num_epochs) as t:
             for i in t:
                 for j, (x, _) in enumerate(train_dataloader):
                     x = x.permute(0, 2, 3, 1).numpy().reshape(data_shape)
                     aug_x = augmentation(x).numpy().reshape(data_shape)
-                    params, state, opt_state, loss_value, rng_key = step(
+                    params, state, opt_state, loss_value, rng_key, extras = step(
                         params, state, opt_state, x, aug_x, rng_key
                     )
                     if j % 50 == 0:
@@ -167,23 +137,29 @@ def train_wrapper(train_dataloader, val_dataloader, cfg):
                                 "ODE Samples": None,
                             },
                         )
-                else:
-                    val_loss = eval_val_callback(
-                        params,
-                        state,
-                        rng_key,
-                        val_dataloader,
-                        cfg.sigma,
-                        n_samples=2,
-                        verbose=False,
+                x, denoised_diff, perturbed_x = extras  # type: ignore
+                fig, axs = plt.subplots(3, 16)
+                for im, ax in zip(x[:16], axs[0]):
+                    ax.imshow(im)
+                    ax.axis("off")
+                for im, ax in zip(perturbed_x[:16], axs[1]):
+                    ax.imshow(im)
+                    ax.axis("off")
+                for im, ax in zip(perturbed_x[:16] + denoised_diff[:16], axs[2]):
+                    ax.imshow(im)
+                    ax.axis("off")
+                plt.savefig(f"model_outputs_epoch_{i}.png")  # type: ignore
+                if cfg.use_wandb:
+                    wandb.log(
+                        {"training_figure": wandb.Image(f"model_outputs_epoch_{i}.png")}
                     )
-                    if cfg.use_wandb:
-                        wandb.log(
-                            data={
-                                "Training Loss": float(loss_value),  # type: ignore
-                                # "Val Loss": float(val_loss),  # type: ignore
-                            },
-                        )
+                if cfg.use_wandb:
+                    wandb.log(
+                        data={
+                            "Training Loss": float(loss_value),  # type: ignore
+                            # "Val Loss": float(val_loss),  # type: ignore
+                        },
+                    )
 
         return train_loss, params, state
 
