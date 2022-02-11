@@ -33,7 +33,7 @@ def train_wrapper(train_dataloader, val_dataloader, cfg):
     data_shape = (-1, 28, 28, 1)
 
     @jit
-    def full_loss(params, rng, state, x):
+    def full_loss(params, rng, state, x, aug_x):
         rng_1, rng_2 = rnd.split(rng, 2)
         random_t = rnd.uniform(rng_1, (x.shape[0],), minval=1e-5, maxval=1)
         std = marginal_prob_std(random_t, sigma)
@@ -44,6 +44,7 @@ def train_wrapper(train_dataloader, val_dataloader, cfg):
         score, new_state = f.apply(
             params, state, perturbed_x, random_t, sigma, is_training=True
         )
+        ode_sampler()
         loss = jnp.mean(jnp.sum((score * std + z) ** 2, axis=(1, 2, 3)))
         return loss, new_state
 
@@ -72,7 +73,7 @@ def train_wrapper(train_dataloader, val_dataloader, cfg):
         """Compute the gradient for a batch and update the parameters"""
         rng_key_1, rng_key_2 = rnd.split(rng_key, 2)
         (loss_value, new_state), grads = value_and_grad(full_loss, has_aux=True)(
-            params, rng_key_1, state, xs
+            params, rng_key_1, state, xs, aug_xs
         )
         updates, opt_state = opt.update(grads, opt_state, params)
         params = optax.apply_updates(params, updates)
@@ -101,6 +102,7 @@ def train_wrapper(train_dataloader, val_dataloader, cfg):
                 for j, (x, _) in enumerate(train_dataloader):
                     x = x.permute(0, 2, 3, 1).numpy().reshape(data_shape)
                     aug_x = augmentation(x).numpy().reshape(data_shape)
+
                     params, state, opt_state, loss_value, rng_key = step(
                         params, state, opt_state, x, aug_x, rng_key
                     )
