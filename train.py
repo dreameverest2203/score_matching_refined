@@ -133,9 +133,9 @@ def train_wrapper(train_dataloader, val_dataloader, cfg):
                         },
                     )
 
-        return train_loss, params, state
+        return params, state
 
-    train_loss, params, state = training_loop(
+    params, state = training_loop(
         train_dataloader,
         val_dataloader,
         init_params,

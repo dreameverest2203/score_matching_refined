@@ -53,7 +53,7 @@ def main(cfg: DictConfig) -> None:
         ) as handle:
             params, state = pickle.load(handle)
     else:
-        train_loss, params, state = train_wrapper(
+        params, state = train_wrapper(
             train_data_loader, test_data_loader, cfg
         )
         print("Model training done\n")
