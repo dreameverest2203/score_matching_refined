@@ -44,6 +44,7 @@ def train_wrapper(train_dataloader, val_dataloader, cfg):
         score, new_state = f.apply(
             params, state, perturbed_x, random_t, sigma, is_training=True
         )
+        pdb.set_trace()
         ode_sampler()
         loss = jnp.mean(jnp.sum((score * std + z) ** 2, axis=(1, 2, 3)))
         return loss, new_state
