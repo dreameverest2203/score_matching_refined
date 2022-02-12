@@ -44,8 +44,8 @@ def train_wrapper(train_dataloader, val_dataloader, cfg):
         score, new_state = f.apply(
             params, state, perturbed_x, random_t, sigma, is_training=True
         )
-        pdb.set_trace()
-        ode_sampler()
+        # aug_x_T = ode_sampler(f,params,state,)
+
         loss = jnp.mean(jnp.sum((score * std + z) ** 2, axis=(1, 2, 3)))
         return loss, new_state
 
@@ -67,7 +67,6 @@ def train_wrapper(train_dataloader, val_dataloader, cfg):
         val_loss /= i + 1  # type: ignore
         xs = cast(jnp.ndarray, xs)  # type: ignore
         samples_shape = tuple([n_samples] + list(xs.shape[1:]))
-
 
     @jit
     def step(params, state, opt_state, xs, aug_xs, rng_key):
@@ -132,7 +131,7 @@ def train_wrapper(train_dataloader, val_dataloader, cfg):
                 if cfg.use_wandb:
                     wandb.log(
                         data={
-                            "Training Loss": float(loss_value), 
+                            "Training Loss": float(loss_value),
                         },
                     )
 
@@ -148,4 +147,4 @@ def train_wrapper(train_dataloader, val_dataloader, cfg):
         rnd.PRNGKey(0),
     )
 
-    return train_loss, params, state
+    return params, state

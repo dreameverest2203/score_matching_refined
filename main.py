@@ -16,13 +16,14 @@ from models import get_model
 import pdb
 from likelihood import likelihood_wrapper
 import wandb
+from UNet import marginal_prob_std
 
 
 @hydra.main(config_path=".", config_name="debug_config")
 def main(cfg: DictConfig) -> None:
 
     train_dataset = MNIST(
-        "../../..", train=True, transform=transforms.ToTensor(), download=False
+        "../../..", train=True, transform=transforms.ToTensor(), download=True
     )
     idx = train_dataset.targets > 1
     train_dataset.data, train_dataset.targets = (
@@ -50,9 +51,7 @@ def main(cfg: DictConfig) -> None:
         ) as handle:
             params, state = pickle.load(handle)
     else:
-        params, state = train_wrapper(
-            train_data_loader, test_data_loader, cfg
-        )
+        params, state = train_wrapper(train_data_loader, test_data_loader, cfg)
         print("Model training done\n")
 
         with open(
@@ -96,7 +95,9 @@ def main(cfg: DictConfig) -> None:
     if cfg.plot_points:
         rng_arr = rnd.split(rnd.PRNGKey(0), num=20)
         for i in range(20):
-            init_x = rnd.normal(rng_arr[i], (1, 28, 28, cfg.num_samples)) * marginal_prob_std(1.0, cfg.sigma)
+            init_x = rnd.normal(
+                rng_arr[i], (1, 28, 28, cfg.num_samples)
+            ) * marginal_prob_std(1.0, cfg.sigma)
             out = ode_sampler(f, params, state, init_x, cfg.sigma, 1e-3, chain_length=1)
             out = jnp.clip(out, 0.0, 1.0)
             grid_img = np.array(out)
