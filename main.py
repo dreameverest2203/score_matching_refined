@@ -28,11 +28,11 @@ def main(cfg: DictConfig) -> None:
     train_dataset = MNIST(
         "../../..", train=True, transform=transforms.ToTensor(), download=True
     )
-    idx = train_dataset.targets > 1
-    train_dataset.data, train_dataset.targets = (
-        train_dataset.data[idx],
-        train_dataset.targets[idx],
-    )
+    # idx = train_dataset.targets > 1
+    # train_dataset.data, train_dataset.targets = (
+    #     train_dataset.data[idx],
+    #     train_dataset.targets[idx],
+    # )
     train_data_loader = DataLoader(
         train_dataset, batch_size=cfg.batch_size, shuffle=True, num_workers=2
     )
