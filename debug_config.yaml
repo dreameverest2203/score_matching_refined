@@ -20,5 +20,5 @@ langevin_stepsize: 1e-4
 use_wandb: True
 load_model: False
 calculate_likelihood: False
-plot_points: False
+plot_points: True
 langevin: False
