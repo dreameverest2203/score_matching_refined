@@ -11,7 +11,6 @@ from config import get_config
 from tqdm import trange
 from likelihood import ode_likelihood
 import matplotlib.pyplot as plt
-
 from jax import vmap
 from jax._src.prng import PRNGKeyArray
 from typing import cast
