@@ -25,7 +25,8 @@ def augmentation(x):
     x = torch.tensor(255 * x, dtype=torch.uint8)
     x = torch.permute(x, (0, 3, 1, 2))
     aux = RandAugment(3, 5, 31).forward(x)
-    aug_x = torch.tensor(aux / 255.0, dtype=torch.float16)
+    aug_x = torch.tensor(aux / 255.0, dtype=torch.float32)
+    aug_x = torch.permute(aug_x, (0, 2, 3, 1))
     return aug_x
 
 
@@ -33,7 +34,6 @@ def augmentation(x):
 def main(cfg: DictConfig) -> None:
     if cfg.use_wandb:
         wandb.init(project="ncsnpp", config=cfg)
-    num_points = cfg.batch_size
     data_shape = (-1, 28, 28, 1)
 
     train_dataset = MNIST(
@@ -55,12 +55,15 @@ def main(cfg: DictConfig) -> None:
     num_comparisons, all_distorg, all_distaug = 0, 0, 0
     for x, _ in tqdm_data:
         # for j, (x, _) in enumerate(train_data_loader2):
-        x0 = x.permute(0, 2, 3, 1).numpy().reshape(data_shape).astype(np.float32)
-        aug0 = augmentation(x0).float().numpy()
-        augT = ode_sampler(f, params, state, aug0, 25.0, 1e-3, chain_length=num_points)
-        xT = ode_sampler(f, params, state, x0, 25.0, 1e-3, chain_length=num_points)
-        distorg = np.mean(np.linalg.norm(x0 - aug0, axis=(1, 2, 3)))
-        distaug = np.mean(np.linalg.norm(xT - augT, axis=(1, 2, 3)))
+        x0 = x.permute(0, 2, 3, 1).numpy().reshape(data_shape)
+        aug0 = augmentation(x0).numpy()
+        augT = ode_sampler(
+            f, params, state, aug0, 25.0, 1e-3, chain_length=cfg.batch_size
+        )
+        xT = ode_sampler(f, params, state, x0, 25.0, 1e-3, chain_length=cfg.batch_size)
+        pdb.set_trace()
+        distorg = np.mean(np.linalg.norm(x0 - aug0, axis=(1, 2)))
+        distaug = np.mean(np.linalg.norm(xT - augT, axis=(1, 2)))
         all_distorg += distorg
         all_distaug += distaug
         num_comparisons += 1
@@ -98,8 +101,8 @@ def main(cfg: DictConfig) -> None:
     # tqdm_data = tqdm.tqdm(train_data_loader2)
     # for x, _ in tqdm_data:
     #     # for j, (x, _) in enumerate(train_data_loader2):
-    #     x0 = x.permute(0, 2, 3, 1).numpy().reshape(data_shape).astype(np.float32)
-    #     aug0 = augmentation(x0).float().numpy()
+    #     x0 = x.permute(0, 2, 3, 1).numpy().reshape(data_shape)
+    #     aug0 = augmentation(x0).numpy()
     #     augT = ode_sampler(f, params, state, aug0, 25.0, 1e-3, chain_length=num_points)
     #     xT = ode_sampler(f, params, state, x0, 25.0, 1e-3, chain_length=num_points)
     #     distorg = np.linalg.norm(xT[0] - xT[1])
