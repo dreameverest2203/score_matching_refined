@@ -5,8 +5,6 @@ from jax.experimental.ode import odeint
 from jax import jit
 import pdb
 
-# from UNet import marginal_prob_std
-
 
 def ode_sampler(
     f,
@@ -28,9 +26,6 @@ def ode_sampler(
         time_steps = jnp.asarray(time_steps).reshape(time_shape)
         out = f.apply(params, state, sample, time_steps, global_sigma, False)
         score = out[0]
-        # score = (
-        #     jnp.concatenate([out[0]] * conf.num_samples, axis=-1) - sample
-        # ) / marginal_prob_std(time_steps, conf.sigma) ** 2
         return np.asarray(score).reshape((-1,)).astype(np.float32)
 
     def jax_score_eval_wrapper(sample, time_steps):
