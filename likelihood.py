@@ -148,11 +148,6 @@ def likelihood_wrapper(f, cfg, params, state):
         )
         all_bpds += bpd.sum()
         all_items += bpd.shape[0] * bpd.shape[1]
-        wandb.log(
-            data={
-                "Training Loss": float(),
-            },
-        )
         tqdm_data.set_description(
             "Average bits/dim: {:5f}".format(all_bpds / all_items)
         )
