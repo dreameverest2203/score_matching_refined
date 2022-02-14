@@ -1,17 +1,13 @@
 from models import get_model
-from ode_sampler import ode_sampler
 import jax.numpy as jnp
 from jax import jit, value_and_grad
 from jax import random as rnd
 import haiku as hk
 import optax
 from NCSN import marginal_prob_std
-from UNet import DAE
-from config import get_config
 from tqdm import trange
 from likelihood import ode_likelihood
 import matplotlib.pyplot as plt
-from jax import vmap
 from jax._src.prng import PRNGKeyArray
 from typing import cast
 import wandb
@@ -40,10 +36,14 @@ def train_wrapper(train_dataloader, val_dataloader, cfg):
         x_stacked = jnp.concatenate(cfg.num_samples * [x], axis=-1)
         z = rnd.normal(rng_2, x_stacked.shape)
         perturbed_x = x + z * std
-        score, new_state = f.apply(
+        # score, new_state = f.apply(
+        #     params, state, perturbed_x, random_t, sigma, is_training=True
+        # )
+        x_est, new_state = f.apply(
             params, state, perturbed_x, random_t, sigma, is_training=True
         )
-        loss = jnp.mean(jnp.sum((score * std + z) ** 2, axis=(1, 2, 3)))
+        loss = jnp.mean(jnp.sum((x - x_est) ** 2, axis=(1, 2, 3)))
+        # loss = jnp.mean(jnp.sum((score * std + z) ** 2, axis=(1, 2, 3)))
         return loss, new_state
 
     def eval_val_callback(
