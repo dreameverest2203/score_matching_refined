@@ -61,7 +61,6 @@ def main(cfg: DictConfig) -> None:
             f, params, state, aug0, 25.0, 1e-3, chain_length=cfg.batch_size
         )
         xT = ode_sampler(f, params, state, x0, 25.0, 1e-3, chain_length=cfg.batch_size)
-        pdb.set_trace()
         distorg = np.mean(np.linalg.norm(x0 - aug0, axis=(1, 2)))
         distaug = np.mean(np.linalg.norm(xT - augT, axis=(1, 2)))
         all_distorg += distorg
