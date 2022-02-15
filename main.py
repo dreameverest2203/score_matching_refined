@@ -101,7 +101,16 @@ def main(cfg: DictConfig) -> None:
             init_x = rnd.normal(
                 rng_arr[i], (1, 28, 28, cfg.num_samples)
             ) * marginal_prob_std(1.0, cfg.sigma)
-            out = ode_sampler(f, params, state, init_x, cfg.sigma, 1e-3, chain_length=1)
+            out = ode_sampler(
+                f,
+                params,
+                state,
+                init_x,
+                cfg.sigma,
+                1e-3,
+                chain_length=1,
+                num_samples=cfg.num_samples,
+            )
             out = jnp.clip(out, 0.0, 1.0)
             grid_img = np.array(out)
             grid_img = torch.from_numpy(grid_img)
