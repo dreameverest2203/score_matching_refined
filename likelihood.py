@@ -137,10 +137,11 @@ def likelihood_wrapper(f, cfg, params, state):
         tqdm_data.set_description(
             "Average bits/dim: {:5f}".format(all_bpds / all_items)
         )
-        wandb.log(
-            data={
-                "Average bits/dim: ": float(all_bpds / all_items),
-            },
-        )
+        if cfg.use_wandb:
+            wandb.log(
+                data={
+                    "Average bits/dim: ": float(all_bpds / all_items),
+                },
+            )
 
     return all_bpds / all_items
