@@ -3,19 +3,14 @@ from jax._src.api import jit
 from jax.experimental.ode import odeint
 import jax.numpy as jnp
 import numpy as np
-from scipy import integrate
 from config import get_config
 import pdb
 from UNet import marginal_prob_std
 from torch.utils.data import DataLoader
-from models import get_model
 from torchvision.datasets import MNIST
 import torchvision.transforms as transforms
-import pickle
 import tqdm
-import hydra
 import wandb
-from omegaconf import DictConfig
 
 conf = get_config()
 
@@ -35,19 +30,14 @@ def score_fn(cfg, f, params, state, x, t):
     t = jnp.squeeze(t, axis=1)
     out = f.apply(params, state, perturbed_x, t, cfg.sigma, True)
     score = out[0]
+    score = (jnp.concatenate([out[0]] * cfg.num_samples, axis=-1) - perturbed_x) / (
+        marginal_prob_std(t, cfg.sigma) ** 2
+    )[:, None, None, None]
+    score = score[:, :, :, :1]
     return score
 
 
-def ode_likelihood(
-    cfg,
-    f,
-    rng,
-    x,
-    params,
-    state,
-    batch_size,
-    eps=1e-5,
-):
+def ode_likelihood(cfg, f, rng, x, params, state, batch_size, eps=1e-5, num_samples=1):
     # Draw the random Gaussian sample for Skilling-Hutchinson's estimator.
     rng, step_rng = jax.random.split(rng)
 
@@ -102,10 +92,6 @@ def ode_likelihood(
     init_x = jnp.concatenate(
         [x.reshape((-1,)), jnp.zeros((shape[0] * shape[1],))], axis=0
     )
-    # Black-box ODE solver
-    # res = integrate.solve_ivp(
-    #     ode_func, (eps, 1.0), np.asarray(init_x), rtol=1e-5, atol=1e-5, method="RK45"
-    # )
 
     res_jax = odeint(
         jax_odeint_fn,

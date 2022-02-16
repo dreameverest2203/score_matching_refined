@@ -115,6 +115,7 @@ def main(cfg: DictConfig) -> None:
             grid_img = np.array(out)
             grid_img = torch.from_numpy(grid_img)
             grid_img = torch.permute(grid_img, (0, 3, 1, 2))
+            grid_img = grid_img[:, :1, :, :]
             save_image(
                 grid_img,
                 fp=f"../../../images/MNIST_{cfg.num_samples}_{i}.png",
