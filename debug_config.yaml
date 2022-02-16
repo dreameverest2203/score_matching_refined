@@ -1,5 +1,5 @@
 data_dim: 2
-num_samples: 1
+num_samples: 5
 n_data: 3000
 layer_sizes: [32, 32, 32, data_dim]
 # layer_sizes: [32,  data_dim]

@@ -99,5 +99,5 @@ class DAE(hk.Module):
         # h = hk.Conv2DTranspose(cfg.ynum_samples, (3, 3), (1, 1), padding=((2, 2), (2, 2)))(
         # jnp.concatenate([h, h1], axis=-1)
         # )
-        h = h / marginal_prob_std(t, sigma)[:, None, None, None]
+        # h = h / marginal_prob_std(t, sigma)[:, None, None, None]
         return h
