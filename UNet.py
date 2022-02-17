@@ -93,11 +93,11 @@ class DAE(hk.Module):
         h = hk.GroupNorm(32)(h)
         h = act(h)
 
-        h = hk.Conv2D(1, (3, 3), (1, 1), padding=((2, 2), (2, 2)))(
-            jnp.concatenate([h, h1], axis=-1)
-        )
-        # h = hk.Conv2DTranspose(1, (3, 3), (1, 1), padding=((2, 2), (2, 2)))(
+        # h = hk.Conv2D(1, (3, 3), (1, 1), padding=((2, 2), (2, 2)))(
         #     jnp.concatenate([h, h1], axis=-1)
         # )
-        h = h / marginal_prob_std(t, sigma)[:, None, None, None]
+        h = hk.Conv2DTranspose(1, (3, 3), (1, 1), padding=((2, 2), (2, 2)))(
+            jnp.concatenate([h, h1], axis=-1)
+        )
+        # h = h / marginal_prob_std(t, sigma)[:, None, None, None]
         return h
