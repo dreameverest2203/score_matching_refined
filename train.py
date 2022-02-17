@@ -36,9 +36,9 @@ def train_wrapper(train_dataloader, val_dataloader, cfg):
         x_stacked = jnp.concatenate(cfg.num_samples * [x], axis=-1)
         z = rnd.normal(rng_2, x_stacked.shape)
         perturbed_x = x + z * std
-        score, new_state = f.apply(
-            params, state, perturbed_x, random_t, sigma, is_training=True
-        )
+        # score, new_state = f.apply(
+        #     params, state, perturbed_x, random_t, sigma, is_training=True
+        # )
         x_est, new_state = f.apply(
             params, state, perturbed_x, random_t, sigma, is_training=True
         )
