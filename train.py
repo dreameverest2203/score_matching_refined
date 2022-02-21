@@ -37,16 +37,16 @@ def train_wrapper(train_dataloader, val_dataloader, cfg):
         z = rnd.normal(rng_2, x_stacked.shape)
         perturbed_x = x + z * std
         # KEEP THIS FOR NCSN
-        # score, new_state = f.apply(
-        #     params, state, perturbed_x, random_t, sigma, is_training=True
-        # )
-        # loss = jnp.mean(jnp.sum((score * std + z) ** 2, axis=(1, 2, 3)))
-        # ------------------------------------------------------------
-        # KEEP THIS FOR DENOISER
-        x_est, new_state = f.apply(
+        score, new_state = f.apply(
             params, state, perturbed_x, random_t, sigma, is_training=True
         )
-        loss = jnp.mean(jnp.sum((x - x_est) ** 2, axis=(1, 2, 3)))
+        loss = jnp.mean(jnp.sum((score * std + z) ** 2, axis=(1, 2, 3)))
+        # ------------------------------------------------------------
+        # KEEP THIS FOR DENOISER
+        # x_est, new_state = f.apply(
+        #     params, state, perturbed_x, random_t, sigma, is_training=True
+        # )
+        # loss = jnp.mean(jnp.sum((x - x_est) ** 2, axis=(1, 2, 3)))
         # --------------------------------------------------------
         #
         return loss, new_state

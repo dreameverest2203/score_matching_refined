@@ -3,6 +3,7 @@ from jax._src.api import jit
 from jax.experimental.ode import odeint
 import jax.numpy as jnp
 import numpy as np
+import torch
 from config import get_config
 import pdb
 from UNet import marginal_prob_std
@@ -30,13 +31,13 @@ def score_fn(cfg, f, params, state, x, t):
     t = jnp.squeeze(t, axis=1)
     out = f.apply(params, state, perturbed_x, t, cfg.sigma, True)
     # KEEP THIS FOR NCSN
-    # score = out[0]
+    score = out[0]
     # -----------------
     # KEEP THIS FOR DENOISER
-    score = (jnp.concatenate([out[0]] * cfg.num_samples, axis=-1) - perturbed_x) / (
-        marginal_prob_std(t, cfg.sigma) ** 2
-    )[:, None, None, None]
-    score = score[:, :, :, :1]
+    # score = (jnp.concatenate([out[0]] * cfg.num_samples, axis=-1) - perturbed_x) / (
+    #     marginal_prob_std(t, cfg.sigma) ** 2
+    # )[:, None, None, None]
+    # score = score[:, :, :, :1]
     # -------------------------------
     return score
 
@@ -118,6 +119,7 @@ def ode_likelihood(cfg, f, rng, x, params, state, batch_size, eps=1e-5, num_samp
 def likelihood_wrapper(f, cfg, params, state):
     sample_batch_size = 64
     dataset = MNIST(".", train=False, transform=transforms.ToTensor(), download=True)
+    dataset = torch.utils.data.Subset(dataset, torch.arange(1000))
     data_loader = DataLoader(
         dataset,
         batch_size=sample_batch_size,

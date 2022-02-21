@@ -17,7 +17,7 @@ error_tolerance: 1e-5
 langevin_iterations: 100000
 langevin_burnin: 80000
 langevin_stepsize: 1e-4
-use_wandb: True
+use_wandb: False
 load_model: False
 calculate_likelihood: True
 plot_points: False
