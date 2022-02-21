@@ -31,13 +31,13 @@ def score_fn(cfg, f, params, state, x, t):
     t = jnp.squeeze(t, axis=1)
     out = f.apply(params, state, perturbed_x, t, cfg.sigma, True)
     # KEEP THIS FOR NCSN
-    score = out[0]
+    # score = out[0]
     # -----------------
     # KEEP THIS FOR DENOISER
-    # score = (jnp.concatenate([out[0]] * cfg.num_samples, axis=-1) - perturbed_x) / (
-    #     marginal_prob_std(t, cfg.sigma) ** 2
-    # )[:, None, None, None]
-    # score = score[:, :, :, :1]
+    score = (jnp.concatenate([out[0]] * cfg.num_samples, axis=-1) - perturbed_x) / (
+        marginal_prob_std(t, cfg.sigma) ** 2
+    )[:, None, None, None]
+    score = score[:, :, :, :1]
     # -------------------------------
     return score
 
