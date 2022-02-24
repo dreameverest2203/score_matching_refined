@@ -18,7 +18,7 @@ error_tolerance: 1e-5
 # langevin_burnin: 80000
 # langevin_stepsize: 1e-4
 use_wandb: True
-load_model: False
-calculate_likelihood: True
+load_model: True
+calculate_likelihood: False
 plot_points: True
 langevin: False
