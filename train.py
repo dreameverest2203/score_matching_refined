@@ -30,7 +30,7 @@ def train_wrapper(train_dataloader, val_dataloader, cfg):
     @jit
     def full_loss(params, rng, state, x, aug_x):
         rng_1, rng_2 = rnd.split(rng, 2)
-        random_t = rnd.uniform(rng_1, (x.shape[0],), minval=1e-5, maxval=1)
+        random_t = rnd.uniform(rng_1, (x.shape[0],), minval=1e-3, maxval=1)
         std = marginal_prob_std(random_t, sigma)
         std = std[:, None, None, None]
         x_stacked = jnp.concatenate(cfg.num_samples * [x], axis=-1)
