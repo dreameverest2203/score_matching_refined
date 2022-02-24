@@ -43,11 +43,10 @@ def train_wrapper(train_dataloader, val_dataloader, cfg):
         # loss = jnp.mean(jnp.sum((score * std + z) ** 2, axis=(1, 2, 3)))
         # ------------------------------------------------------------
         # KEEP THIS FOR DENOISER
-        offset, new_state = f.apply(
+        x_est, new_state = f.apply(
             params, state, perturbed_x, random_t, sigma, is_training=True
         )
-        x_est = perturbed_x + offset
-        loss = jnp.mean(jnp.sum((x - x_est) ** 2, axis=(1, 2, 3)))
+        loss = jnp.mean(jnp.sum(((x - x_est) / std) ** 2, axis=(1, 2, 3)))
         # --------------------------------------------------------
         #
         return loss, new_state
