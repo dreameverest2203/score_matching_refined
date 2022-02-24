@@ -51,7 +51,9 @@ def train_wrapper(train_dataloader, val_dataloader, cfg):
             params, state, perturbed_x, random_t, sigma, is_training=True
         )
         x_est = jnp.mean(score * (std ** 2) + perturbed_x, axis=-1)
-        loss = jnp.mean(jnp.sum(((x - x_est) / std) ** 2, axis=(1, 2, 3)))
+        loss = jnp.mean(
+            jnp.sum(((x - x_est[:, :, :, None]) / std) ** 2, axis=(1, 2, 3))
+        )
         # --------------------------------------------------------
         #
         return loss, new_state
