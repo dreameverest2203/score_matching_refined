@@ -39,9 +39,8 @@ def train_wrapper(train_dataloader, val_dataloader, cfg):
         xT = ode_sampler(
             f, params, state, perturbed_x, 25.0, 1e-3, chain_length=cfg.batch_size
         )
-        aug0 = augmentation(x)
         augT = ode_sampler(
-            f, params, state, aug0, 25.0, 1e-3, chain_length=cfg.batch_size
+            f, params, state, aug_x, 25.0, 1e-3, chain_length=cfg.batch_size
         )
         # KEEP THIS FOR NCSN
         score, new_state = f.apply(
@@ -101,7 +100,8 @@ def train_wrapper(train_dataloader, val_dataloader, cfg):
         x = torch.tensor(255 * x, dtype=torch.uint8)
         x = torch.permute(x, (0, 3, 1, 2))
         aux = RandAugment(3, 5, 31).forward(x)
-        aug_x = torch.tensor(aux / 255.0, dtype=torch.float16)
+        aug_x = torch.tensor(aux / 255.0, dtype=torch.float32)
+        pdb.set_trace()
         return aug_x
 
     def training_loop(
