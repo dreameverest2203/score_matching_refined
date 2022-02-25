@@ -43,7 +43,6 @@ def ode_sampler(
         return 0.5 * (g ** 2) * jax_score_eval_wrapper(x, time_steps)
 
     jax_odeint_fn = lambda y, t: jax_ode_func(t, y)
-    pdb.set_trace()
     result_0 = odeint(
         jax_odeint_fn,
         jnp.array(init_x).reshape(-1),
