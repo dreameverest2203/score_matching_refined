@@ -27,10 +27,10 @@ def ode_sampler(
         sample = sample.reshape(sample_shape)
         time_steps = time_steps.reshape(time_shape)
         out = f.apply(params, state, sample, time_steps, global_sigma, False)
-        # score = out[0]
-        score = (
-            jnp.concatenate([out[0]] * num_samples, axis=-1) - sample
-        ) / marginal_prob_std(time_steps, global_sigma) ** 2
+        score = out[0]
+        # score = (
+        #     jnp.concatenate([out[0]] * num_samples, axis=-1) - sample
+        # ) / marginal_prob_std(time_steps, global_sigma) ** 2
         return jnp.asarray(score).reshape((-1,)).astype(jnp.float32)
 
     @jit

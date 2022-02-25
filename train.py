@@ -36,24 +36,33 @@ def train_wrapper(train_dataloader, val_dataloader, cfg):
         x_stacked = jnp.concatenate(cfg.num_samples * [x], axis=-1)
         z = rnd.normal(rng_2, x_stacked.shape)
         perturbed_x = x + z * std
+        xT = ode_sampler(
+            f, params, state, perturbed_x, 25.0, 1e-3, chain_length=cfg.batch_size
+        )
+        aug0 = augmentation(x)
+        augT = ode_sampler(
+            f, params, state, aug0, 25.0, 1e-3, chain_length=cfg.batch_size
+        )
         # KEEP THIS FOR NCSN
-        # score, new_state = f.apply(
-        #     params, state, perturbed_x, random_t, sigma, is_training=True
-        # )
-        # loss = jnp.mean(jnp.sum((score * std + z) ** 2, axis=(1, 2, 3)))
+        score, new_state = f.apply(
+            params, state, perturbed_x, random_t, sigma, is_training=True
+        )
+        loss = jnp.mean(
+            jnp.sum((score * std + z) ** 2, axis=(1, 2, 3)) + (augT - xT) ** 2
+        )
         # ------------------------------------------------------------
         # KEEP THIS FOR DENOISER
         # x_est, new_state = f.apply(
         #     params, state, perturbed_x, random_t, sigma, is_training=True
         # )
 
-        score, new_state = f.apply(
-            params, state, perturbed_x, random_t, sigma, is_training=True
-        )
-        x_est = jnp.mean(score * (std ** 2) + perturbed_x, axis=-1)
-        loss = jnp.mean(
-            jnp.sum(((x - x_est[:, :, :, None]) / std) ** 2, axis=(1, 2, 3))
-        )
+        # score, new_state = f.apply(
+        #     params, state, perturbed_x, random_t, sigma, is_training=True
+        # )
+        # x_est = jnp.mean(score * (std ** 2) + perturbed_x, axis=-1)
+        # loss = jnp.mean(
+        #     jnp.sum(((x - x_est[:, :, :, None]) / std) ** 2, axis=(1, 2, 3))
+        # )
         # --------------------------------------------------------
         #
         return loss, new_state

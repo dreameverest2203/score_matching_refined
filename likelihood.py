@@ -38,7 +38,7 @@ def score_fn(cfg, f, params, state, x, t):
     #     marginal_prob_std(t, cfg.sigma) ** 2
     # )[:, None, None, None]
     # score = score[:, :, :, :1]
-    score = jnp.mean(score, axis=-1)[:, :, :, None]
+    # score = jnp.mean(score, axis=-1)[:, :, :, None]
     # -------------------------------
     return score
 
