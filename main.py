@@ -97,7 +97,7 @@ def main(cfg: DictConfig) -> None:
 
     if cfg.plot_points:
         rng_arr = rnd.split(rnd.PRNGKey(0), num=20)
-        for i in range(20):
+        for i in range(5):
             init_x = rnd.normal(
                 rng_arr[i], (1, 28, 28, cfg.num_samples)
             ) * marginal_prob_std(1.0, cfg.sigma)
