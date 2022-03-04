@@ -2,7 +2,7 @@ import jax.numpy as jnp
 from langevin import langevin_wrapper
 import matplotlib.pyplot as plt
 import jax.random as rnd
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Subset
 from torchvision.datasets import MNIST
 from torchvision.datasets import CIFAR10
 import torchvision.transforms as transforms
@@ -28,6 +28,10 @@ def main(cfg: DictConfig) -> None:
     train_dataset = MNIST(
         "../../..", train=True, transform=transforms.ToTensor(), download=True
     )
+    # train_dataset = CIFAR10(
+    #     "../../..", train=True, transform=transforms.ToTensor(), download=True
+    # )
+    # train_dataset = Subset(train_dataset, torch.arange(100))
     # idx = train_dataset.targets > 1
     # train_dataset.data, train_dataset.targets = (
     #     train_dataset.data[idx],
@@ -40,7 +44,9 @@ def main(cfg: DictConfig) -> None:
     test_dataset = MNIST(
         "../../..", train=False, transform=transforms.ToTensor(), download=False
     )
-
+    # test_dataset = CIFAR10(
+    #     "../../..", train=False, transform=transforms.ToTensor(), download=False
+    # )
     test_data_loader = DataLoader(
         test_dataset, batch_size=cfg.batch_size, shuffle=True, num_workers=2
     )
@@ -58,7 +64,7 @@ def main(cfg: DictConfig) -> None:
         print("Model training done\n")
 
         with open(
-            f"../../../model_weights/dae_model_{cfg.num_samples}samples.pickle", "wb"
+            f"../../../model_weights/dae_mnist_consistency.pickle", "wb"
         ) as handle:
             pickle.dump((params, state), handle)
 
@@ -88,6 +94,7 @@ def main(cfg: DictConfig) -> None:
         indices = np.arange(0, grid_img.shape[1], grid_img.shape[1] / 5)
         grid_img = grid_img[:, indices, :, :, :]
         grid_img = torch.reshape(grid_img, (-1, 28, 28, 1))
+        # grid_img = torch.reshape(grid_img, (-1, 32, 32, 3))
         grid_img = torch.permute(grid_img, (0, 3, 1, 2))
         save_image(grid_img, fp=f"../../../images/MNIST_langevin.png", nrow=5)
         if cfg.use_wandb:
@@ -96,39 +103,44 @@ def main(cfg: DictConfig) -> None:
             )
 
     if cfg.plot_points:
-        rng_arr = rnd.split(rnd.PRNGKey(0), num=20)
-        for i in range(5):
-            init_x = rnd.normal(
-                rng_arr[i], (1, 28, 28, cfg.num_samples)
-            ) * marginal_prob_std(1.0, cfg.sigma)
-            out = ode_sampler(
-                f,
-                params,
-                state,
-                init_x,
-                cfg.sigma,
-                1e-3,
-                chain_length=1,
-                num_samples=cfg.num_samples,
+        num_images = 5
+        _, key = rnd.split(rnd.PRNGKey(0))
+        init_x = rnd.normal(key, (num_images, 28, 28, 1)) * marginal_prob_std(
+            1.0, cfg.sigma
+        )
+        out = ode_sampler(
+            f,
+            params,
+            state,
+            init_x,
+            cfg.sigma,
+            error_tol=1e-2,
+            chain_length=num_images,
+            num_samples=cfg.num_samples,
+        )
+        out = jnp.clip(out, 0.0, 1.0)
+        grid_img = np.array(out)
+        grid_img = torch.from_numpy(grid_img)
+        grid_img = torch.permute(grid_img, (0, 3, 1, 2))
+        grid_img = grid_img[:, :1, :, :]
+        # save_image(
+        #     grid_img,
+        #     fp=f"../../../images/MNIST_{cfg.num_samples}.png",
+        #     nrow=grid_img.shape[0],
+        # )
+        save_image(
+            grid_img,
+            fp=f"../../../images/MNIST_consistency.png",
+            nrow=grid_img.shape[0],
+        )
+        if cfg.use_wandb:
+            wandb.log(
+                {
+                    "training_figure": wandb.Image(
+                        f"../../../images/MNIST_consistency.png"
+                    )
+                }
             )
-            out = jnp.clip(out, 0.0, 1.0)
-            grid_img = np.array(out)
-            grid_img = torch.from_numpy(grid_img)
-            grid_img = torch.permute(grid_img, (0, 3, 1, 2))
-            grid_img = grid_img[:, :1, :, :]
-            save_image(
-                grid_img,
-                fp=f"../../../images/MNIST_{cfg.num_samples}_{i}.png",
-                nrow=grid_img.shape[0],
-            )
-            if cfg.use_wandb:
-                wandb.log(
-                    {
-                        "training_figure": wandb.Image(
-                            f"../../../images/MNIST_{cfg.num_samples}_{i}.png"
-                        )
-                    }
-                )
     if cfg.calculate_likelihood:
         bpd = likelihood_wrapper(f, cfg, params, state)
         print(f"Final bpd: {bpd}")

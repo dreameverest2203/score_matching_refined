@@ -1,3 +1,4 @@
+from http.cookiejar import FileCookieJar
 from models import get_model
 import jax.numpy as jnp
 from jax import jit, value_and_grad
@@ -67,13 +68,11 @@ def train_wrapper(train_dataloader, val_dataloader, cfg):
         #     params, state, perturbed_x, random_t, sigma, is_training=True
         # )
 
-        # score, new_state = f.apply(
-        #     params, state, perturbed_x, random_t, sigma, is_training=True
-        # )
-        # x_est = jnp.mean(score * (std ** 2) + perturbed_x, axis=-1)
-        # loss = jnp.mean(
-        #     jnp.sum(((x - x_est[:, :, :, None]) / std) ** 2, axis=(1, 2, 3))
-        # )
+        # # score, new_state = f.apply(
+        # #     params, state, perturbed_x, random_t, sigma, is_training=True
+        # # )
+        # # x_est = jnp.mean(score * (std ** 2) + perturbed_x, axis=-1)
+        # loss = jnp.mean(jnp.sum(((x - x_est) ** 2) / std, axis=(1, 2, 3)))
         # --------------------------------------------------------
         #
         return loss, new_state

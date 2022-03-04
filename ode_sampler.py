@@ -7,20 +7,20 @@ import pdb
 from UNet import marginal_prob_std
 
 
-
 def ode_sampler(
     f,
     params,
     state,
     init_x,
     global_sigma,
-    eps=1e-3,
+    eps=1e-5,
     chain_length=1,
     error_tol=1e-4,
     num_samples=1,
 ):
     time_shape = (chain_length,)
-    sample_shape = (chain_length, 28, 28, num_samples)
+    # sample_shape = (chain_length, 32, 32, num_samples)
+    sample_shape = (chain_length, 28, 28, 1)
 
     def jax_score_eval_wrapper(sample, time_steps):
         """A wrapper of the score-based model for use by the ODE solver."""
@@ -40,6 +40,8 @@ def ode_sampler(
         time_steps = np.ones(time_shape) * t
         g = global_sigma ** t
         # return -0.5 * (g ** 2) * jax_score_eval_wrapper(x, time_steps)
+        # below line is for reverse process (sampling) and
+        # above line for forward process
         return 0.5 * (g ** 2) * jax_score_eval_wrapper(x, time_steps)
 
     jax_odeint_fn = lambda y, t: jax_ode_func(t, y)

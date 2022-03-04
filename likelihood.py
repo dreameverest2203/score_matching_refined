@@ -133,6 +133,7 @@ def likelihood_wrapper(f, cfg, params, state):
     tqdm_data = tqdm.tqdm(data_loader)
     for x, _ in tqdm_data:
         x = x.permute(0, 2, 3, 1).cpu().numpy().reshape((-1, 1, 28, 28, 1))
+        # x = x.permute(0, 2, 3, 1).cpu().numpy().reshape((-1, 1, 32, 32, 3))
         rng, step_rng = jax.random.split(rng)
         z = jax.random.uniform(step_rng, x.shape)
         x = (x * 255.0 + z) / 256.0

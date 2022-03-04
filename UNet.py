@@ -37,6 +37,8 @@ class DAE(hk.Module):
         t_proj = t[:, None, None, None] * w[None, None, None, :] * 2 * jnp.pi
         t_proj = jnp.concatenate([jnp.sin(t_proj), jnp.cos(t_proj)], axis=-1)
         std_embedding = hk.Linear(self.embed_dim * self.num_samples)(t_proj)
+        # below line for cifar10 and above for mnist
+        # std_embedding = hk.Linear(self.embed_dim)(t_proj)
         std_embedding = act(std_embedding)
 
         # Encoding path
@@ -71,9 +73,17 @@ class DAE(hk.Module):
         h4 = act(h4)
 
         # Decoding path
+
+        # FOR MNIST
         h = hk.Conv2DTranspose(
             self.channels[2], (3, 3), (2, 2), padding=((2, 2), (2, 2)), with_bias=False
         )(h4)
+
+        # For CIFAR-10
+        # h = hk.Conv2DTranspose(
+        #     self.channels[2], (3, 3), (3, 3), padding=((2, 2), (2, 2)), with_bias=False
+        # )(h4)
+
         ## Skip connection from the encoding path
         h += hk.Linear(self.channels[2])(std_embedding)
         h = hk.GroupNorm(32)(h)
@@ -100,7 +110,7 @@ class DAE(hk.Module):
         # )
         # ---------------------------------------
         # KEEP THIS FOR NCSN
-        h = hk.Conv2D(self.num_samples, (3, 3), (1, 1), padding=((2, 2), (2, 2)))(
+        h = hk.Conv2D(1, (3, 3), (1, 1), padding=((2, 2), (2, 2)))(
             jnp.concatenate([h, h1], axis=-1)
         )
         h = h / marginal_prob_std(t, sigma)[:, None, None, None]

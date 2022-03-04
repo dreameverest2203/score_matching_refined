@@ -31,5 +31,5 @@ source /sailhome/aamdekar/.bashrc
 #source /sailhome/cundy/.zshrc
 
 conda activate jax_ncsn
-cd /atlas/u/aamdekar/score_matching++/score_matching_refined/ || exit
-python main.py use_wandb=True batch_size=32 num_epochs=1
+cd /atlas/u/aamdekar/score_matching_refined/ || exit
+python main.py use_wandb=True num_epochs=100

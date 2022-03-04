@@ -16,7 +16,7 @@ def get_model(cfg):
     f = hk.without_apply_rng(hk.transform_with_state(forward_new))
 
     dummy_xs, dummy_t = (
-        jnp.ones((cfg.batch_size, 28, 28, cfg.num_samples)),
+        jnp.ones((cfg.batch_size, 28, 28, 1)),
         jnp.zeros((cfg.batch_size,)),
     )
     init_params, init_state = f.init(
